@@ -1,0 +1,397 @@
+\documentclass[a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{syntax}
+
+
+\title{Proposition, formalisation et implémentation d'un mécanisme de namespaces
+  pour OCaml}
+\author{Pierrick COUDERC}
+
+\setlength{\grammarindent}{8em} % increase separation between LHS/RHS 
+
+\lstnewenvironment{OCaml}
+                  {\lstset{
+                      language=[Objective]Caml,
+                      breaklines=true,
+                      %% commentstyle=\color{purple},
+                      %% stringstyle=\color{red},
+                      %% identifierstyle=\ttfamily,
+                      %% keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+\begin{document}
+
+\maketitle
+
+\section{Remerciements}
+
+\chapter{Introduction}
+
+Dans le monde des langages, il est souvent utile de pouvoir réutiliser des noms
+de fonctions ou de valeurs à différents endroits d'un programme, notamment en
+terme de lisibilité du code écrit, mais également pour l'utilisateur qui doit
+utiliser ces fonctions. Si de tels moyens n'existaient pas, en d'autre terme
+s'il n'existait aucune portée dans le langage, l'utilisateur se verrait
+contraint d'écrire et d'imaginer des noms affreusement longs pour éviter de
+potentiels conflits à la compilation et/ou à l'exécution de son
+programme. Typiquement, si on suppose que deux structures de données,
+\texttt{Map} et \texttt{Hashtbl}, pour lesquelles il existe des opérations
+relativement identiques (créer, ajouter, retirer, itérer, etc), les noms des
+fonctions seraient de l'ordre de \texttt{hashtbl\_add, hashtbl\_find} et
+respectivement pour Map. Si maintenant quelqu'un voulait utiliser sa propre
+implémentation de table de hashages, il se retrouverait à écrire des noms
+suffisament longs pour éviter tout conflit.
+
+En terme de passage à l'échelle, ce problème est évident : il devient
+pratiquement impossible d'écrire un programme correct et lisible, notamment
+parce qu'un programme mesure en général quelques milliers de lignes, mais aussi
+parce que certains parties du code font appel à des bibliothèques externes dont
+une partie des éléments sont abstraits. Ce problème est résolu notamment parce
+que l'on nomme une \textbf{espace de noms} (ou \texttt{namespace}).
+
+Il existe de nombreux moyens de simuler des espaces de noms, par exemple à
+l'aide de la portée lexicale ou syntaxique dans le programme : tout nom défini à
+l'intérieur d'un bloc n'est visible que par lui et par conséquent, aucune
+fonction ou valeur de même nom en dehors n'est plus atteignable, et ce qui est
+déclaré dans le bloc n'est pas visible vers l'extérieur. Ce principe de portée
+s'applique aussi bien aux blocs, aux fonctions mais aussi aux \emph{unités de
+  compilation} (autrement dit, aux fichiers).
+
+OCaml en partculier est un langage fonctionnel fortement typé et possédant
+notamment un système de modules dont l'utilité est de pouvoir définir des
+espaces de noms d'ordre supérieur : un module dans le système de type de ML est
+une valeur comme une autre, et de ce fait il est possible d'utiliser un module
+en paramètre de fonction et également d'avoir des applications de modules. Ces
+applications, ou \emph{foncteurs}, permettent de définir des modules abstraient
+sur une interface et donc une meilleure réutilisabilité du code. Un module peut
+être déclaré à n'importe quel endroit du code, et une unité de compilation est
+elle-même un module, à la différence près qu'elle ne peut être functorisée.
+
+En revanche, malgré un système de modules fort, le passage à l'échelle peut
+parfois être problématique : en terme d'architecture de programme, il n'est pas
+rare de retrouver les mêmes noms d'unité de compilation entre deux
+bibliothèques. Par exemple, une unité de compilation \texttt{Utils} est
+généralement très utilisée pour les fonctions génériques qui sont utilisées par
+tout le reste du code. De ce fait, il devient impossible de générer un programme
+correct qui auraient des unités de même nom, et il incombe alors au developpeur
+de préfixer ses modules pour éviter de probables conflits. Il devient dès lors
+nécessaire de trouver une solution à ce problème pour permettre d'avoir d'autres
+discriminants que le nom du module pour permettre une édition des liens
+correcte. Autrement dit, il devient nécessaire d'avoir une notion d'espace de
+noms pour les unité de compilation.
+
+\chapter{Etat de l'art}
+
+Pour une meilleure compréhension de ce rapport, il est nécessaire de définir
+certains termes qui seront mentionnés de manière régulières. Ainsi, un module
+fera toujours référence à une unité de compilation et non un module déclaré dans
+le fichier, sauf lorsque le contraire est indiqué : cette définition est logique
+puisque la problématique étudiée ici se concentre sur les unités de compilation
+uniquement. 
+
+\chapter{Problématique}
+
+
+Dans l'implémentation actuelle d'OCaml, il est immpossible de lier deux unités
+de compilation de même nom, ou u moins d'y référer de manière explicite. En
+effet, lorsqu'un programme est compilé en \emph{bytecode}, le code
+d'initialisation des deux modules sera bien executé, en revanche seul le module
+lié en premier sera effectivement accessible. Dans le cas de compilation native
+(en assembleur), l'éditeur de lien ne pourra lier les deux unités : puisque les
+symboles générés seront les mêmes, le compilateur ne pourra générer un programme
+qui sera correct.
+
+La solution adoptée par l'ensemble des développeurs est de préfixer leurs
+modules par le nom de la bibliothèque dont elle est issue. Cette solution est
+efficace mais oblige l'utilisateur à devoir utiliser des noms parfois longs dans
+son programme. Bien qu'il ne s'agisse que d'un problème en terme de praticité,
+il peut être intéressant de proposer une solution plus générale à ce problème.
+
+Dans ce sens, l'une des solutions utilisées par les développeurs est de créer
+des \texttt{packs} de modules : il s'agit alors de plusieurs unités de
+compilation regroupées au sein d'une seule qui fait alors office d'espace de
+nom. Cette solution est déjà plus intéressante, car elle permet de distribuer
+une bibliothèque sous la forme d'un seul objet, mais est également plsu souple à
+l'utilisation. En effet, chaque module est donc accessible à l'aide du chemin
+\texttt{<nom\_du\_pack>.<nom\_de\_l'unité>} : le compilateur transforme chacune
+des unités du pack en sous-module. Ainsi, il suffit d'ouvrir \texttt{open} le
+module qui fait office de pack pour utiliser les noms originaux. En revanche,
+cette solution a plusieurs défauts :
+\begin{itemize}
+\item elle oblige à emporter \textbf{tous} les modules du pack, même si un seul
+  est utilisé;
+\item il est impossible d'avoir du code d'initialisation dans ce module-pack,
+  par exemple pour y inclure des fonctions ou opérateurs utiles pour tous les
+  modules du pack.
+\end{itemize}
+En résumé, il n'y a aucun contrôle sur le contenu effectif du pack, il n'est
+possible que d'y ajouter des unités de compilation mais aucune autre opération
+n'est possible.
+
+Une autre solution adoptée par d'autres tels que Jane Street pour leur
+bibliothèque \emph{Core} ou les développeurs de la bibliothèque \emph{Batteries
+  Included} est d'utiliser un module d'alias. En d'autre termes, un module qui
+est une suite d'alias d'autres modules, permettant ainsi d'avoir l'avantage du
+pack mais sans le second inconvénient. En effet, puisque ce module est écrit par
+le développeur et non plus généré automatiquement par le compilateur, il est
+possible d'y include du code qui sera directement utilisable dès lors que ce
+``module namespace'' sera ouvert. En revanche, avant la version 4.02 d'OCaml,
+cette solution nécessitait tout de même de donner explicitement au compilateur
+tous les modules référencés dans ce dernier.
+
+La prochaine version du compilateur règle ce problème en rajoutant (entre
+autres) une notion de dépendances faibles (ou transparentes comme son auteur,
+Jacques Garrigues, les appelle). Ainsi il en résulte trois propriétés
+intéressantes:
+\begin{enumerate}
+\item un alias se propage, i.e. il peut être instancié tardivement, dans une
+  autre unité de compilation;
+\item tant qu'un alias n'est pas utilisé, il n'est pas nécessaire à la
+  compilation; 
+\item son interface peut ne pas être présente au moment de la compilation du
+  ``module namespace''.
+\end{enumerate}
+De plus, deux autres fonctionnalités ont été rajoutées:
+\begin{itemize}
+\item une option \texttt{-open} qui permet d'ouvrir un module avec même de
+  commencer à typer le programme;
+\item la sémantique du \texttt{-o} a été modifiée et permet désormais de choisir
+  le nom interne de l'unité de compilation qui sera générée (jusque là,
+  seulement le nom du fichier changeait, son nom de module était celui du
+  \texttt{.ml}).
+\end{itemize}
+
+Ces traits permettent ainsi de simuler des namespaces, mais de manière non
+intuitive, et demande de mettre en place un schéma de compilation relativement
+compliqué. Un exemple simple serait le suivant:
+
+Supposons que l'on écrive deux modules \texttt{set.ml} et \texttt{map.ml}, et
+dont \texttt{Set} est dépendant de \texttt{Map}. On utilise un module
+\texttt{lib.ml} qui fait office de ``module namespace''. Le contenu des trois
+fichiers est le suivant:
+
+\begin{OCaml}
+(* map.ml *)
+...
+
+(* set.ml *)
+...
+module UnitMap = Map.Make(
+  struct 
+    type t = unit 
+    let compare = compare 
+  end)
+..
+
+(* lib.ml *)
+module Map = Lib_map
+module Set = Lib_set
+\end{OCaml}
+
+Le lecteur attentif remarquera que le nom dans \texttt{lib.ml} des deux modules
+aliasé est différent de leur nom d'origine, et de plus, que \texttt{set.ml} fait
+explicitement référence à \texttt{Map} (donc \texttt{map.ml}). L'astuce icic est
+d'utiliser les fonctionnalités introduite précédemment :
+\begin{enumerate}
+\item \texttt{lib.ml} est d'abord compilé, mais comme ce module ne contient que
+  des alias et d'après la propriété (2) des alias. On donne également l'option
+  \texttt{-no-alias-deps} qui permet d'utiliser la proriété (1).
+\item \texttt{map.ml} est compilé avec l'option \texttt{-o lib\_map.ml}.
+\item \texttt{set.ml} est ensuite compilé à l'aide de les options \texttt{-o
+  lib\_set.ml} et \texttt{-open Lib}.
+\end{enumerate}
+
+La dernière étape permet donc de simuler le namespace : la directive
+\texttt{-open Lib} permet de propager de manière transparente les alias de Lib
+dans \texttt{set.ml} et ainsi de ne pas avoir à utiliser le nom long
+\texttt{Lib\_map} (et de ne pas écrire les noms de fichiers longs). Cette
+technique peut paraître relativement complexe, mais a été avancée comme la
+non-nécessité de devoir inclure un véritable mécanisme de namespaces dans le
+langage. Elle nécessite un schéma de compilation relativement complexe, capable
+de gérer de manière transparente les changements de noms de modules et les
+dépendences qui semblent être mutuellement récursives. L'intérêt est seulement
+le fait que les alias non utilisés n'auront pas à être liés à la compilation.
+
+Cette solution n'est pas satisfaisante, tout d'abord à cause de cette
+gymnastique non intuitive pour comprendre le schéma de compilation, mais
+également parce qu'elle nécessite un véritable \emph{système de build} pour être
+capable de l'utiliser. De plus, il manque une propriété importante que l'on
+pourrait attendre des namespaces : l'extensibilité.
+
+L'intérêt n'est pas seulement de proposer un mécanisme de namespaces simple,
+mais également de trouver une solution aux \emph{big functors}, une version des
+packs qui permettent d'englober les modules sous un foncteur et ainsi obtenir
+un pack paramétrique, réutilisable avec des implémentations
+différentes. 
+
+\medskip
+
+Au final, la problèmatique de ce stage est d'imaginer et prototyper un mécanisme
+de \emph{namespaces} pour OCaml, dont l'utilisation soit simple et facilement
+compréhensible, mais qui en plus de ça ne demande pas un schéma de compilation
+particulier pour être efficace. De plus, l'idée est également de trouver une
+solution pour les namespaces functorisés, qui permettrait de mettre en oeuvre
+des bibliothèques totalement génériques et instantiées par l'utilisateur.
+
+
+\chapter{Solution}
+
+Dans le cadre d'un système efficace de namespaces, plusieurs solutions ont été
+proposée et envisagées. Il faut savoir que ce sujet est étudié informellement
+depuis déjà longtemps dans la communauté et plusieurs contributeurs ont proposé
+une solution. En revanche, les solutions étant souvent éloignées et les avis
+divergeants, aucun compromis n'a été établi vers une proposition qui pourrait
+satisfaire le plus de monde. Le but est ici de trouver ce compromis mais en
+proposant une solution concrète avec un prototype. L'intérêt est d'éviter de
+relancer une discussion sur la manière dont doit être ajoutée cette
+fonctionnalité, mais plutôt de discuter d'une solution effective et l'améliorer
+en fonction des avis reçus.
+
+En ce sens, il peut être intéressant de voir les grands axes qui ont été étudiés
+pour des solutions à ces propositions et de quelle manière notre proposition
+finale la rejette ou au contraire s'en inspire.
+
+Les objectifs de notre solution sont les suivants :
+\begin{itemize}
+\item \^{E}tre consistant, en d'autres termes ne pas devoir jongler entre le
+  langage et le \emph{build system};
+\item Simplicité en terme de construction et d'utilisation;
+\item Orthogonalité avec le système de types;
+\item Pas de changement dans la sémantique du langage;
+\item Etre compatible avec le schéma de compilation actuel, i.e. ne demande
+  pas d'outils particuliers supplémentaires.
+\end{itemize}
+
+Dans chacune des propositions existantes, au moins un point n'était pas
+respecté. Par exemple, l'une des solutions étaient d'étendre le nom des modules
+avec un préfixe qui serait le nom du namespace :
+\texttt{<namespace>-<module>.ml}. Cette solution relativement simple visait à ne
+pas changer en profondeur le compilateur, mais semblait trop simple. Dans le
+langage, pour la plupart des solutions, le chemin des modules était étendu avec
+un namespace. Par exemple, l'utilisation d'une unité de compilation se faisait
+de la manière suivante :
+\texttt{Chemin\#Du\#Namespace\#Module.Sous\_module}. 
+
+Une solution était également d'ajouter un nouveau type de fichier de description
+de namespaces, mais cette solution n'apportait finalement pas la simplicité
+désirée. Finalement, durant la synthèse des différente solution émergeait un
+concept important pour ces ensembles d'unité de compilation : un moyen de
+décrire l'environnement de compilation. Ce concept était également introduit
+dans la proposition de Didier Rémi et Gabriel Scherer.
+
+En partant de ce principe, il fallait donc trouver ce qu'était l'environnement
+de compilation, comment celui-ci était généré et comment l'utilisateur pourrait
+l'influencer : en effet, l'un des problèmes majeurs actuels est l'impossibilité
+d'utiliser deux unités de compilation de même nom dans un programme. Si
+l'environnement est capable de les distinguer cela ne poserait plsu de
+problème. Ce qui ressort également de ce problème est que pour que deux modules
+de même nom puissent cohabiter dans le système de fichiers, ils doivent être
+dans des dossiers distincts : le système de fichiers avec son organisation à
+travers une hiérarchie de dossier est un espace de noms. Ainsi, un namespace
+pourrait être la projection de l'organisation des modules sur le système de
+fichiers.
+
+Cette réflexion nous mène alors à la solution suivante :
+\begin{itemize}
+\item Un module = un fichier, donc un Namespace = un dossier \\
+  $\rightarrow$ le compilateur sait où trouver un module.
+\item Pas de manipulation explicite des namespaces dans le coeur du langage pour
+  éviter des possibles changements de sémantique \\
+  $\rightarrow$ La déclaration des namespaces et l'import des unités de
+  compilation se fait en en-tête du code, cet en-tête permet de décrire plus
+  finement l'environnement de compilation.
+\end{itemize}
+
+De cette manière, le coeur du langage ne subit aucune modification, et de plus,
+cela permet d'harmoniser la manière dont sont installés les bibliothèques, ou du
+moins propose une organisation standard et permet de réduire le besoin d'outils
+externes pour trouver un module (\emph{ocamlfind} par exemple). La syntaxe de
+l'en-tête est présentée en (\ref{header-bnf}).
+
+\begin{figure}
+\begin{grammar}
+<module_name> = <uident>
+
+<header> ::= <namespace_decl> <imports>
+\alt <imports>
+
+<namespace_decl> ::= `in' `namespace' <mod_longident>
+
+<imports> ::= <import> <imports> 
+
+<import> ::= (`with'|`and') <ns_conf> 
+
+<ns_conf> ::= `(' <modules_constraints> `)' `of' <mod_longident>
+
+<modules_constraints> ::= <module_constraint>
+\alt <module_constraint> `;' <module_constraints>
+
+<modules_constraint> ::= `_'
+\alt <module_name> `as' <module_name>
+\alt <module_name> `as' `_'
+\alt <module_name>
+\end{grammar}
+\caption{Syntaxe d'un en-tête de fichier \texttt{.ml(i)}}
+\label{header-bnf}
+\end{figure}
+
+Dans cette syntaxe, il faut noter que l'en-tête est séparé en deux partie
+distinctes. Tout d'abord, on remarque que le namespace auquel appartient l'unité
+de compilation est déclaré explicitement. Cela permet au compilateur de
+récupérer de manière automatique tous les modules susceptibles d'appartenir au
+même namespace. De plus, déclarer de manière explicite au compilateur lui permet
+de générer le fichier dans le bon dossier. La déclaration d'un namespace n'est
+en revanche pas obligatoire.
+
+La seconde partie est la plus intéressante et montre les possibilités de
+déclaration de l'environnement de compilation. La déclaration des imports est
+lue séquenciellement. Chaque ligne déclare l'ensemble des modules à importer
+depuis l'environnement donné. Cet ensemble est déclaré par l'utilisateur, ce qui
+lui permet de raffiner ses choix d'après les règles de \texttt{<module_constraint>}:
+\begin{itemize}
+\item En important module par module;
+\item En important un module tout en l'aliasant (\lstinline{Mod as Mod_from_ns});
+\item En important tous les modules (\texttt{\_});
+\item En masquant un module, pour ne pas inclure tous les modules dans
+  l'ensemble généré par la contrainte précédente.
+\end{itemize}
+
+Cet en-tête n'existe plus à partir de la phase de typage, et se fait en deux
+temps : l'ensemble des modules à rajouter à l'environnement est calculée et le
+résultat ajouté à l'environnement. Il ne change rien à la chaîne de compilation,
+si ce n'est d'utiliser des informations de namespaces lors de la recherche de
+modules dans l'environnement.
+
+Cependant, cet en-tête n'est suffisant pour gérer l'utilisation de modules de
+même nom : il est donc nécessaire d'ajouter cette information dans l'unité de
+compilation elle-même pour pouvoir l'utiliser comme discriminant lors de
+l'édition des liens, mais aussi de modifier les symboles pour y introduire cette
+information et donc permettre une différenciation.
+
+Cette solution répond aux problèmes posés par les packs et les modules d'alias :
+seuls les modules utilisés sont réellement nécessaires, mais également un
+namespace est totalement extensible. En effet, rien n'empêche un autre
+utilisateur d'utiliser le même namespace pour y redéfinir certains modules ou en
+ajouter.
+
+Finalement, il reste une dernière fonctionnalité manquante par rapport aux
+modules d'alias (ou ``modules namespace'') : la possibilité d'avoir du code
+accessible de base pour tous les modules. Ce qui a été décidé ici est donc de
+donner une sémantique particulière aux unités de compilation ayant pour nom
+\emph{Pervasives}. Ainsi, chaque fois qu'un namespace est utilisé et qu'il
+contient un module Pervasives, celui-ci est automatiquement ouvert (sauf s'il
+est aliasé ou masqué dans les contraintes). De plus, chaque module d'un
+namespace ouvre implicitement ce module.
+
+\chapter{Analyses}
+
+\chapter{Conclusion et perspective}
+
+\end{document}
