@@ -4,7 +4,7 @@
 \usepackage{amsmath}
 \usepackage{listings}
 \usepackage{syntax}
-
+\usepackage{cite}
 
 \title{Proposition, formalisation et implémentation d'un mécanisme de namespaces
   pour OCaml}
@@ -20,7 +20,7 @@
                       %% stringstyle=\color{red},
                       %% identifierstyle=\ttfamily,
                       %% keywordstyle=\color{blue},
-                      basicstyle=\footnotesize\tt,
+                      %% basicstyle=\footnotesize\tt,
                       otherkeywords={namespace, abstract}
                     }
                   }
@@ -30,7 +30,9 @@
 
 \maketitle
 
-\section{Remerciements}
+\section*{Remerciements}
+
+\tableofcontents
 
 \chapter{Introduction}
 
@@ -53,8 +55,8 @@ En terme de passage à l'échelle, ce problème est évident : il devient
 pratiquement impossible d'écrire un programme correct et lisible, notamment
 parce qu'un programme mesure en général quelques milliers de lignes, mais aussi
 parce que certains parties du code font appel à des bibliothèques externes dont
-une partie des éléments sont abstraits. Ce problème est résolu notamment parce
-que l'on nomme une \textbf{espace de noms} (ou \texttt{namespace}).
+une partie des éléments sont abstraits. Ce problème est résolu notamment par ce
+que l'on nomme un \textbf{espace de noms} (ou \texttt{namespace}).
 
 Il existe de nombreux moyens de simuler des espaces de noms, par exemple à
 l'aide de la portée lexicale ou syntaxique dans le programme : tout nom défini à
@@ -64,12 +66,12 @@ déclaré dans le bloc n'est pas visible vers l'extérieur. Ce principe de port�
 s'applique aussi bien aux blocs, aux fonctions mais aussi aux \emph{unités de
   compilation} (autrement dit, aux fichiers).
 
-OCaml en partculier est un langage fonctionnel fortement typé et possédant
+OCaml en particulier est un langage fonctionnel fortement typé et possédant
 notamment un système de modules dont l'utilité est de pouvoir définir des
 espaces de noms d'ordre supérieur : un module dans le système de type de ML est
 une valeur comme une autre, et de ce fait il est possible d'utiliser un module
 en paramètre de fonction et également d'avoir des applications de modules. Ces
-applications, ou \emph{foncteurs}, permettent de définir des modules abstraient
+applications, ou \emph{foncteurs}, permettent de définir des modules abstraits
 sur une interface et donc une meilleure réutilisabilité du code. Un module peut
 être déclaré à n'importe quel endroit du code, et une unité de compilation est
 elle-même un module, à la différence près qu'elle ne peut être functorisée.
@@ -87,7 +89,21 @@ discriminants que le nom du module pour permettre une édition des liens
 correcte. Autrement dit, il devient nécessaire d'avoir une notion d'espace de
 noms pour les unité de compilation.
 
+Ce stage a été réalisé au sein d'OCamlPro et sous la direction de Fabrice Le
+Fessant.
+
 \chapter{Etat de l'art}
+
+Ce sujet de stage touche plusieurs domaines différents, mais particulièrement
+celui de la compilation. Un programme est rarement consistitué d'un seul fichier
+mais plus généralement d'un ensemble de fichiers, appelés aussi \emph{unités de
+  compilation}. Une unité de compilation possède généralement une interface et
+une implémentation, la première étant une description sur la manière d'utiliser
+la seconde. Il s'agit de l'interface d'entrée pour d'autres programmes pour
+pouvoir utiliser cette unité de compilation. On parle alors de compilation
+séparée \cite{Cardelli97programfragments}. 
+
+\chapter{Problématique}
 
 Pour une meilleure compréhension de ce rapport, il est nécessaire de définir
 certains termes qui seront mentionnés de manière régulières. Ainsi, un module
@@ -96,11 +112,8 @@ le fichier, sauf lorsque le contraire est indiqué : cette définition est logiq
 puisque la problématique étudiée ici se concentre sur les unités de compilation
 uniquement. 
 
-\chapter{Problématique}
-
-
 Dans l'implémentation actuelle d'OCaml, il est immpossible de lier deux unités
-de compilation de même nom, ou u moins d'y référer de manière explicite. En
+de compilation de même nom, ou du moins d'y référer de manière explicite. En
 effet, lorsqu'un programme est compilé en \emph{bytecode}, le code
 d'initialisation des deux modules sera bien executé, en revanche seul le module
 lié en premier sera effectivement accessible. Dans le cas de compilation native
@@ -788,6 +801,36 @@ possible mise-à-jour:
 \end{itemize}
 
 \chapter{Conclusion et perspective}
+
+La problématique des namespaces est un sujet intéressant : il s'agit d'abord
+d'un sujet de discussion récurrent au sein de la communauté, avec de nombreuses
+idées mais sans jamais aucun accord entre les participants. Bien qu'il n'apporte
+pas un gain évident en expressivité, il permet plus de confort pour le
+développeur et l'utilisateur. Les namespaces sont un excellent moyen de décrire
+une bibliothèque dans le langage, mais aussi d'apporter un standard dans la
+manière dont sont installées celles-ci dans le système de fichiers, et permet
+également de simplifier le travail du compilateur sans nécessiter d'outils
+externes (le moins possible en tout cas).
+
+L'idée d'avoir un moyen de déclarer des namespaces génériques est intéressante
+et logique dans le contexte de la programmation fonctionnelle où le code d'un
+programme est facilement réutilisable grâce aux fonctions d'ordre supérieur. La
+solution demande un peu d'effort au niveau de la chaîne de compilation
+néanmoins, et n'est pas aussi simple que celle des namespaces.  La solution de
+namespaces proposée ici se rapproche en particulier de la mécanique des packages
+de Java ou Scala, avec la généricité des packages de Backpack.
+
+Le but de ce stage est de réouvrir la discussion sur le besoin de namespaces,
+mais en apportant cette fois une solution concrète et non seulement des
+idées. L'espoir est donc de faire converger la communauté vers une solution
+définitive. Le prototype permet notamment aux différents acteurs de se faire une
+idée sur notre proposition. Cette proposition sera d'ailleurs présentée durant
+l'ICFP 2014, à l'OCaml Users and Developpers Workshop le 6 septembre.
+
+Par la suite, il est évident que si cette solution plait il deviendra nécessaire
+de continuer à travailler sur ce prototype, que ce soit en terme de nettoyage du
+code, de refactorisation mais surtout pour modifier ou ajouter certaines
+fonctionnalités dans le but de pouvoir intégrer cette mécanique au langage.
 
 \bibliographystyle{abbrv}
 \bibliography{biblio} 
