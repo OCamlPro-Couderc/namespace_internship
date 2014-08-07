@@ -103,6 +103,55 @@ la seconde. Il s'agit de l'interface d'entrée pour d'autres programmes pour
 pouvoir utiliser cette unité de compilation. On parle alors de compilation
 séparée \cite{Cardelli97programfragments}. 
 
+Ainsi, un programme est un ensemble d'unité de compilation ordonnée selon leur
+dépendance. Néanmoins, ces unités ne peuvent être liées entre elles qu'à la
+condition qu'elles soient compatibles. Autrement dit, dès qu'une unité en
+utilise une autre, donc qu'il s'agit d'une ses dépendances, elle doit être
+recompilée si l'une de ses dépendances l'a été pour s'assurer de leur
+compatibilité. Un programme est ainsi un ensemble d'équations à résoudre
+pour pouvoir être correctement compilé \cite{Drossopoulou99afragment}. On
+retrouve d'ailleurs une formalisation simplifiée d'un programme correct en terme
+d'unités de compilation en annexe.
+
+Le principe de namespaces existe déjà dans plusieurs langages, on peut le
+retrouver par exemple en C++\cite{cppspec} où il est possible de créer des
+namespaces qui contiennent des valeurs, des classes ou des fonctions, et qui
+peuvent être déclarés dans plusieurs unités différentes. Néanmoins, cette
+solution ne correspond pas à celle vers laquelle nous nous dirigeons, à savoir
+un mécanisme pour différencier des unités de compilation de même nom. En ce
+sens, notre idée est à rapprocher fortement des packages de Java\cite{java-spec}
+et en particulier Scala\cite{scalaspec}. En effet, dans ces deux langages les
+packages permettent d'organiser des classes sous une hiérarchie et ainsi
+d'utiliser de manière conjointes des classes de même nom en utilisant le chemin
+complet. Néanmoins, ce choix se justifie dans ces deux langages puisque la
+classe est l'unité de base le langage, il est donc nécessaire d'avoir ce
+mécanisme de noms longs pour les différencier. En revanche, les clauses
+d'importation de Scala permettent une meilleure expressivité en donnant la
+possibilité d'importer plusieurs classes d'un package mais aussi en les aliasant
+ou en les masquant dans le cas où tout le package est importé.
+
+OCaml quand à lui possède déjà son système de modules\cite{Leroy00} qui fait
+office de mécanisme de namespaces : les fonctions et valeurs peuvent être ainsi
+préfixées d'un chemin, permettant alors de différencier celles-ci à l'exécution
+et à la compilation. Néanmoins, deux unités de compilation ne peuvent coexister
+dans un programme si celles-ci ont un même nom.
+
+Finalement un travail récent a été fait autour d'Haskell pour résoudre notamment
+le problème de compilation séparé\cite{KilpatrickDJM14} : en effet, le système
+de modules d'Haskell ne possède pas de \emph{signatures}, et par conséquent
+n'est pas capable de compiler de manière distribuer un programme. Une unité de
+compilation n'est compilable qu'à partir du moment où toutes ses dépendances le
+sont. Le résultat est un langage de packages au dessus d'Haskell, qui permet en
+outre de \emph{typer-checker} un programme sans donner d'implémentation pour
+chacune des dépendances grâce à des interfaces de modules, mais également un
+système de packages pour distinguer les modules.
+
+Finalement, il est important de s'intéresser aux nombreuses discussions de la
+communauté\cite{ocaml-platform} et particulièrement aux différentes propositions
+émises par certains mainteneurs du compilateur\cite{ocaml-proposals}, notamment
+un langage formel de description d'environnement\cite{remy-scherer-prop} et
+décrivant ainsi les possibilités attendues pour des namespaces.
+
 \chapter{Problématique}
 
 Pour une meilleure compréhension de ce rapport, il est nécessaire de définir
@@ -832,8 +881,7 @@ de continuer à travailler sur ce prototype, que ce soit en terme de nettoyage d
 code, de refactorisation mais surtout pour modifier ou ajouter certaines
 fonctionnalités dans le but de pouvoir intégrer cette mécanique au langage.
 
-\bibliographystyle{abbrv}
-\bibliography{biblio} 
-
+\bibliographystyle{plain}
+\bibliography{biblio}
 
 \end{document}

@@ -1,6 +1,13 @@
-all: biblio.bib rapport.tex
-	rubber -d rapport.tex
 
-clean: 
-	rm -rf rapport.aux rapport.log rapport.pdf *~
-	rm -rf rapport.bbl rapport.blg
+FILE=rapport
+
+all: $(FILE).pdf
+
+$(FILE).pdf: $(FILE).tex biblio.bib
+	pdflatex $(FILE)
+	bibtex $(FILE)
+	pdflatex $(FILE)
+
+clean:
+	rm -f *~
+	rm -f $(FILE).aux $(FILE).bbl $(FILE).blg $(FILE).log $(FILE).out
