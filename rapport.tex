@@ -286,6 +286,8 @@ concept important pour ces ensembles d'unité de compilation : un moyen de
 décrire l'environnement de compilation. Ce concept était également introduit
 dans la proposition de Didier Rémi et Gabriel Scherer.
 
+\section{Déclaration et implémentation de namespaces}
+
 En partant de ce principe, il fallait donc trouver ce qu'était l'environnement
 de compilation, comment celui-ci était généré et comment l'utilisateur pourrait
 l'influencer : en effet, l'un des problèmes majeurs actuels est l'impossibilité
@@ -390,8 +392,405 @@ contient un module Pervasives, celui-ci est automatiquement ouvert (sauf s'il
 est aliasé ou masqué dans les contraintes). De plus, chaque module d'un
 namespace ouvre implicitement ce module.
 
-\chapter{Analyses}
+\section{Alternative aux \emph{big functors}}
+
+Le deuxième problème à résoudre est celui de trouver une contrepartie aux
+\emph{big functors} pour les namespaces. Pour rappel, les big functors sont une
+extension particulière des packs, qui permet au lieu de faire un simple module
+comprenant pour sous-modules des unités de compilation d'avoir un pack
+``générique''. L'idée est ici d'englober ces sous-modules sous un foncteur, et
+ainsi permettre d'abstraire certaines des dépendances de ces modules pour en
+faire des arguments de ce foncteur. Ainsi, il devient possible d'avoir des packs
+instanciés sous différentes implémentations.
+
+Cette fonctionnalité, qui a été proposée et implémentée par Fabrice Le Fessant
+était destinée à la version 3.12 du compilateur, mais n'a jamais été fusionnée
+dans les sources officielles. Le patch est néanmoins disponible sur le site
+d'OCamlPro. L'idée ici est donc d'imaginer et d''implémenter un mécanisme qui
+permettrait d'avoir des namespaces ``génériques'', functorizés et ainsi de
+permettre une meilleure réutilisabilité du code.
+
+L'intérêt ici est donc de savoir dans quelle mesure le code était réutilisable
+et facilement adaptable, mais aussi de trouver une solution simple à ce
+problème. On peut voir cette fonctionnalité comme la contrepartie des ``trous''
+de Backpack pour Haskell \cite{KilpatrickDJM14}. Ainsi, la solution à envisager
+doit être capable d'avoir des modules qui soient abstraits et aussi de pouvoir
+avoir des dépendances qui soient elle-mêmes functorizées sur les mêmes
+arguments.
+
+La première partie de la solution était donc de reprendre une partie du code des
+big functors. Effet, chaque module qui doit faire partie du pack functorizé doit
+être compilé de la manière suivante :
+\begin{verbatim}
+ocamlc -c -functor Arg my_module.ml
+\end{verbatim}
+L'option indique que le module \texttt{Arg} dans \texttt{my\_module.ml} est un
+argument de foncteur, sa signature est celle de \texttt{arg.cmi} et par
+conséquent il n'y a pas de dépendance vers l'unité de compilation
+\texttt{arg.cmo}. De plus, si \texttt{My_module} a des dépendances vers d'autres
+unités, celles-ci doivent :
+\begin{itemize}
+\item soit être functorizées sur les mêmes arguments;
+\item soit ne pas être functorizées.
+\end{itemize}
+Ainsi, l'unité de compilation résultante est ce que l'on appelle une
+\emph{functor unit}, ou unité functorizée. 
+
+Les functor units ne sont pas utilisable en l'état : il est impossible de les
+utiliser dans du code dit ``standard'' (sauf par d'autre functo units dépendant
+des mêmes arguments) et ne peuvent être liée directement au
+moment de l'édition des liens. Pour pouvoir les utiliser, il faut être capable
+de donner une version appliquée de ces unités, autrement dit une instance de
+celles-ci appliquées sur une implémentation. On introduit alors une nouvelle
+option \texttt{-apply} au compilateur pour donner ces arguments et créer ces
+instances. Par exemple, l'instanciation du module précédent serait :
+\begin{verbatim}
+ocamlc -c -apply Impl my_module.cmo
+\end{verbatim}
+Ceci va créer une nouvelle unité de compilation \texttt{my\_module.cmo} qui
+donnera \texttt{impl.cmo} à la functor unit et donnera donc un module instancié
+sur \texttt{Impl} et donc utilisable normalement. 
+
+Cela étant, cette solution n'est pas complète : le module instancié aura le même
+nom que celui de l'unité functorizée. Il sera donc impossible de faire cohabiter
+les deux modules dans un même programme, hors l'instance dépend du
+foncteur. Pour cela, il faudra que le résultat de l'application soit dans un
+nouveau namespace, qui correspondrait donc à un namespace qui serait
+l'instanciation d'un autre sur un ensemble d'arguments. On ajoute pour cela une
+option \texttt{-ns} qui permet alors de donner le namespace dans lequel doit se
+trouver l'unité résultant de l'application.
+
+Les propriétés et restrictions de cette implémentation sont les suivantes :
+\begin{itemize}
+\item Le module donné à \texttt{-functor} doit forcément être une unité de
+  compilation qui appartient au même namespace qui celui déclaré dans le fichier
+  \texttt{.ml} de l'unité functorizée;
+\item Les dépendances functorizées doivent être dans le même namespace;
+\item Le résultat de l'application ne peut appartenir au même namespace;
+\item Les arguments donnés pour l'application doivent résider dans le même
+  namespace que le résultat;
+\item Il doit exister une version appliquée de chaque dépendances functorizée
+  dans le namespace pour pouvoir appliquer l'unité, et ces dépendances
+  instanciées doivent appartenir au même namespace.
+\end{itemize}
+
+De cette manière, il est donc possible de créer des namespaces dont tous les
+modules sont functorizés, et donc ensuite de laisser à l'utilisateur le soin
+d'instancier ce namespace sur l'implémentation de son choix. Un exemple
+d'utilisation est donné dans le chapitre suivant.
+
+\medskip
+
+Un prototype de cette solution est disponible à l'adresse suivante, et avec un
+jeu de test et d'exemples.
+
+\chapter{Exemples d'utilisation et analyse}
+
+\section{Namespaces simples}
+
+\subsection{Namespaces hiérarchiques et installation}
+
+La proposition de namespaces actuelles permet par exemple de définir de manière
+simple une bibliothèque : en effet, l'utilisation de namespaces permet de ranger
+des modules sous un même nom et est ainsi un moyen naturel de décrire, installer
+et utiliser des bibliothèques. De plus, ces namespaces étant hiérarchiques, il
+est possible de définir des sous-namespaces pour spécifier des comportement dans
+une bibliothèque.
+
+Par exemple, une implémentation pour la bibliothèque standard pourrait être la
+suivante (on ne prendra que quelques exemples) :
+\begin{OCaml}
+(* stdlib/list.ml *)
+in namespace Stdlib
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* stdlib/unsafe/obj.ml *)
+in namespace Stdlib.Unsafe
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* stdlib/internals/camlinternalFormat.ml *)
+in namespace Stdlib.Internals
+...
+\end{OCaml}
+
+Ce que l'on peut constater est qu'il devient alors très facile de déclarer des
+bibliothèques. Ainsi, il serait envisageable de rendre le compilateur plus
+efficace : puisque l'arborescence des namespaces correspond à l'arborescence du
+système de fichiers, le compilateur pourrait être capable dans ce cas de
+retrouver simplement les \emph{.cmo ou .cmx} comme il le fait déjà pour les
+\emph{.cmis}. De cettte manière, la compilation d'un programme serait simplifiée
+lorsqu'il s'agit d'utiliser une bibliothèque externe et ne demanderait donc plus
+un système de \emph{build} complet. On pourrait par exemple imaginer un
+\texttt{-lib} qui prendrait un nom de dossier en argument et s'occuperait alors
+de lire les namespaces et unités de compilation depuis un répertoire
+d'installation standard.
+
+Cette proposition de namespace vise ainsi à standardiser la manière dont sont
+installées les bibliothèques externes.
+
+\subsection{Extension et redéfinition de namespaces}
+
+Par essence, les namespaces ne sont pas fixes, au contraire des modules. Il
+s'agit par ailleurs l'une des caractéristiques qui joue en la faveur de ne pas
+utiliser les modules pour simuler les namespaces. Ainsi, il est possible
+d'ajouter des modules dans un namespace, et donc par conséquent en redéfinir
+certains. Cela n'impacte en aucun cas le namespace de base et ne modifie pas ses
+fichiers : ces redéfinitions et extensions sont gérées selon l'ordre des unités
+de compilation données au moment de l'édition des liens. Chaque bibliothèque
+s'installe dans un dossier à part, l'arborescence des unités de compilation
+n'est pas commune à tous. En effet, cela pourrait être particulièrement
+dangereux :
+\begin{itemize}
+\item Si une biliothèque redéfinit des modules d'un namespace, les unités de
+  compilation déjà existantes seraient écrasées;
+\item Dans ce cas, si l'utilisateur souhaite désinstaller l'ancienne
+  bibliothèque, cela reviendrait à supprimer également les unités qui ont été
+  ajoutées par la précédente.
+\end{itemize}
+
+Un exemple de redéfinition et d'extension serait :
+\begin{OCaml}
+(* stdlib/string.ml *)
+(* Ce module remplacera le module String du namespace Stdlib *)
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* stdlib/linkedlist.ml *)
+(* Ce module implemente des listes chainees de maniere imperative, et donc non
+   persistante *)
+...
+\end{OCaml}
+
+Ainsi, il est possible dans le programme (en supposant que le namespace Stdlib
+ne soit pas automatiquement importé) :
+
+\begin{OCaml}
+(* my_prog.ml *)
+with (_) of Stdlib
+
+type list = Linkedlist.t
+\end{OCaml}
+
+\subsection{Utilisation d'unités de compilation de même nom}
+
+Dans l'état actuel de la communauté OCaml, il existe plusieurs libraries dont le
+but est de définir une nouvelle bibliothèque standard : on notera notamment Core
+et Batteries. Ces dernières utilisent les techniques citées précédemment pour
+éviter les conflits : Core utilise un module \texttt{Core} qui est un ensemble
+d'alias vers d'autres modules tous préfixés par \texttt{Core_} et Batteries
+préfixe tous ses modules par \texttt{Bat_}. De cette manière, il est possible
+d'utiliser ces deux biliothèques avec la \texttt{Stdlib} sans avoir de
+conflit. Si on supposait que celles-ci étaient réécrites avec des namespaces, il
+serait possible de les utiliser conjointement dans un programme. Ce n'est pas un
+comportement voulu, mais cela peut avoir une utilité pour réaliser des
+benchmarks ou des tests sur des algorithmes.
+
+Par exemple, un programme qui ferait des benchmarks sur les implémentations de
+\texttt{Hashtbl} de chacune :
+\begin{OCaml}
+with (Hashtbl) of Stdlib
+and (Hashtbl as CHtbl) of Core
+and (Hashtbl as BHtbl) of Batterie
+
+...
+let _ =
+  let h1 = Hashtbl.create 17 in
+  let h2 = CHtbl.create 17 in
+  let h3 = BHtbl.create 17 in
+  (* une batterie de tests et de comparaison de chacune des operations *)
+\end{OCaml}
+
+\subsection{Réflexions sur l'intérêt de ces namespaces}
+
+Les namespaces qui sont proposés ici n'ajoutent rien au langage actuel, le gain
+en expressivité n'est pas important, mais l'intérêt se joue particulièrement au
+niveau du confort à l'utilisation qu'ils apportent. Le développeur n'a plus à
+définir des noms long pour éviter des conflits, l'utilisateur peut décider plus
+finement quels modules importer dans son environnement de compilation et lui
+évite d'utiliser les noms longs. De plus, ils ne nécessitent pas l'utilisation
+d'un outil de compilation de projet particulier comme \emph{Ocamlbuild, OMake,
+  ocp-build, Jenga, etc.}. De plus, leur utilisation permet de calculer plus
+efficacement les dépendances pour \emph{ocamldep} par exemple : l'outil est donc
+capable de donner de meilleures dépendances puisqu'il sait où se trouve chacun
+des modules donné dans l'en-tête, et peut se permettre de lire les premiers
+tokens des possibles dépendances pour vérifier qu'ils appartiennent au namespace
+recherché. 
+
+Leur intérêt se situe particulièrement sur la manière dont peuvent être décrites
+les bibliothèques, comment celles-ci sont installées et l'espoir de
+standardisation dans l'organisation des bibliothèques du langage. En effet,
+cette solution pourrait permettre de ne plus être obligé d'utiliser des outils
+tel \emph{ocamlfind} pour des programmes très simples : le compilateur sait
+exactement quels modules utiliser si une option comme \texttt{-lib} proposée
+précédemment était implémentée.
+
+L'implémentation actuelle modifie légèrement le type des alias de modules
+(introduit dans la verson 4.02) : le type qui à l'origine contient le chemin
+vers l'unité aliasée (ou le module) contient également le namespace d'où
+provient le module. Cette information n'est utilisé qu'à la normalisation des
+chemins pour justement substituer les alias par le veritable chemin, et par
+conséquent ne modifie pas la sémantique du langage et du système de types.
+En interne, les symboles sont légèrement modifiés pour devenir des noms longs de
+la forme \texttt{<namespace>@<module>}, ce qui permet donc de différencier des
+unités de compilation de même nom mais de provenance différente. Ces symboles ne
+sont bien sûr pas reconnu par le langage et une telle syntaxe n'est donc pas
+parsable. De ce fait, il est nécessaire de realiaser les expressions lorsque le
+\emph{.mli} est inféré à l'aide de l'option \texttt{-i} du compilateur.
+
+Utiliser un namespace n'est bien évidemment pas une obligation, et tout
+programme compilable à l'aide de la version 4.02 l'est avec le compilateur
+patché pour les namespaces.
+
+Au final, cette solution satisfait l'ensemble des contraintes imposées dans la
+problématique.
+
+\section{Utilisation des functor units}
+
+\subsection{Cas d'utilisation}
+
+Supposons que l'on écrive une biliothèque pour écrire des serveurs web. En
+particulier, un serveur doit pouvoir gérer plusieurs requètes en même temps, et
+nécessite donc d'être capable de paralléliser celles-ci. On peut par exemple
+prendre le cas de \emph{CoHTTP}, qui utilise \emph{Lwt} ou \emph{Async}, deux
+bibliothèques écrites sous forme monadiques, pour la partie concurrence du
+traitement des requètes. Si un seul module est dépendant de l'implémentation de
+la monade concurrente, un simple foncteur est suffisant. En revanche, si
+l'ensemble de la bibliothèque dépend de cette implémentation, la seule solution
+est d'avoir un fichier de base qui \emph{bind} l'une ou l'autre des
+implémentations au moment de la configuration de l'environnement (donc avant la
+compilation). En effet, utiliser un foncteur pour ce fichier de bindings n'est
+pas envisageable : le foncteur devrait donc être appliqué dans chaque module qui
+l'utilise, et le code d'initialisation (s'il y en a) serait exécuté à chaque
+fois.
+
+La solution des functor units permet à l'ensemble de la bibliothèque d'être
+complètement abstraite sur l'interface de cette monade, et donc par la suite de
+créer un namespace qui serait l'instantiation de cette bibliothèque sur cette
+monade. Voici un exemple concret :
+
+\begin{OCaml}
+(* cohttp/asyncMonad.mli *)
+in namespace Cohttp
+
+type 'a t
+
+val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
+
+val return : 'a -> 'a t
+val bind : 'a t -> ('a -> 'b t) -> 'b t (* == (>>=) *)
+val poll : 'a t -> 'a option
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* cohttp/requestHandler.ml *)
+in namespace Cohttp
+...
+let M = AsyncMonad
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* cohttp/protocol.ml *)
+in namespace Cohttp
+...
+open RequestHandler
+\end{OCaml}
+
+Le namespace Cohttp contient donc le code générique pour un serveur HTTP (on
+supposera que ces deux modules sont suffisant, il ne s'agit pas d'un exemple de
+la véritable bibliothèque Cohttp). La compilation de ces modules serait :
+\begin{verbatim}
+ocamlc -c cohttp/asyncMonad.mli
+ocamlc -c -functor AsyncMonad cohttp/requestHandler.ml
+ocamlc -c -functor AsyncMonad cohttp/protocol.ml
+\end{verbatim}
+
+Dans cet exemple, le module Protocol ne fait jamais explicitement référence à
+AsyncMonad, néanmoins pour pouvoir utiliser RequestHandler il doit être
+functorizé sur les mêmes arguments que lui.
+
+On souhaite ensuite instancier une version de la bibliothèque sur Lwt. On crée
+donc un nouveau namespace Cohttp.Lwt, et un fichier qui bind le module Lwt dans
+ce namespace. On suppose que Lwt appartient au namespace Ocsigen :
+\begin{OCaml}
+(* cohttp/lwt/monad.ml *)
+in namespace Cohttp.Lwt
+with (Lwt) of Ocsigen
+
+type 'a t = 'a Lwt.t
+
+let (>>=) = Lwt.(>>=)
+let return = Lwt.return
+let bind = Lwt.bind
+let poll = Lwt.poll
+...
+\end{OCaml} 
+
+Il est désormais possible d'instancier la bibliothèque sur cette monade :
+
+\begin{verbatim}
+ocamlc -c cohttp/lwt/monad.ml
+ocamlc -c -apply Monad -ns Cohttp.Lwt cohttp/requestHandler.cmo
+ocamlc -c -apply Monad -ns Cohttp.Lwt cohttp/protocol.cmo
+\end{verbatim}
+
+Si finalement on écrit un serveur très simple à l'aide de Cohttp.Lwt :
+\begin{OCaml}
+(* my_server.ml *)
+with (Protocol) of Cohttp.Lwt
+
+...
+\end{OCaml}
+
+La compilation sera alors :
+
+\begin{verbatim}
+ocamlc -o server cohttp/requestHandler.cmo cohttp/protocol.cmo \
+    cohttp/lwt/monad.ml cohttp/lwt/requestHandler.cmo cohttp/lwt/protocol.cmo \
+    my_server.ml 
+\end{verbatim}
+
+On remarque que la ligne de compilation parait très longue, mais cela se
+justifie du fait que les versions instanciées sont toujours dépendantes des
+functor units qu'elles instancient : tout le code se trouve dans ces functor
+units, les instances ne font qu'appliquer les arguments.
+
+\subsection{Réflexion sur l'implémentation et le choix des functor units}
+
+La solution pour avoir des namespaces functorizée est moins élégante que celle
+des namespaces : en effet, ici tout se passe du côté de la chaîne de compilation
+et nécessite de mettre en place un système de build ou d'utiliser un outil
+capable de comprendre et gérer ces functor units et leur instantiation. L'un des
+objectifs n'est pas atteint. Néanmoins, le gain en expressivité est réel,
+puisqu'il devient possible de définir des bibliothèques génériques.
+
+Certaines restrictions pourraient être levées ou du moins allégée dans une
+possible mise-à-jour:
+\begin{itemize}
+\item Le fait que le module sur lequel est appliquée la functor unit pourrait ne
+  pas appartenir au même namespace (on pourrait utiliser Lwt directement), mais
+  se justifie car il est rare que l'interface du module que l'on souhaite
+  utiliser lors de l'instantiation ait une interface directement compatible. Le
+  plus souvent, il faudra écrire un module qui \emph{bind} l'argument vers la
+  bonne interface.
+\item Dans la version actuelle, la currification n'est pas possible. Ce n'est
+  que par soucis de simplicité et cela serait réalisable.
+\item En terme de dépendances, dans les big functors deux unités sont
+  compatibles si les arguments de la dépendances sont un sous-ensemble des
+  arguments de l'unité en cours de compilation. Cela devrait être également
+  possible dans l'implémentation actuelle.
+\end{itemize}
 
 \chapter{Conclusion et perspective}
+
+\bibliographystyle{abbrv}
+\bibliography{biblio} 
+
 
 \end{document}
