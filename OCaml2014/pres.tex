@@ -1,0 +1,219 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{syntax}
+\usepackage{cite}
+
+\author{Pierrick COUDERC, Fabrice LE FESSANT, Benjamin Canou, Pierre Chambart}
+
+\title{A Proposal for Non-intrusive Namespaces for OCaml}
+
+%% \setlength{\grammarindent}{8em} % increase separation between LHS/RHS 
+
+\lstnewenvironment{OCaml}
+                  {\lstset{
+                      language=[Objective]Caml,
+                      breaklines=true,
+                      %% commentstyle=\color{purple},
+                      %% stringstyle=\color{red},
+                      %% identifierstyle=\ttfamily,
+                      %% keywordstyle=\color{blue},
+                      %% basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}
+\frametitle{Introduction}
+
+Namespaces are a recurrent discussion amongst the community. However, no
+agreement emerged on what they are, why are they useful and how to add them in
+OCaml.
+
+\medskip
+
+What we present is a proposal with a prototype of working namespace mechanism.
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{On the need of namespaces}
+
+\defverbatim{\ex}{
+\begin{OCaml}
+  (* mylib.ml *)
+  module List = Mylib_list
+  module Map = Mylib_map
+  ...
+\end{OCaml}
+}
+
+
+Currently, no way to distinguish two compilation units of the same name, thus to
+link them.
+
+Solutions: 
+\begin{itemize}
+\only<1>{\item Hopefully long enough names, for example ``My\_lib\_utils'' or
+  ``Core\_list''}
+\only<2>{\item Using \emph{packs} to avoid long names}
+\only<3>{\item Using a module which is simply a list of aliases:}
+\end{itemize}
+\only<3>{\ex1}
+\end{frame}
+
+%% \begin{frame}
+%% \frametitle{On the need of namespaces}
+
+
+%% \end{frame}
+
+\begin{frame}
+\frametitle{What namespaces are}
+
+In the current OCaml standard, there is no notion of namespaces, or
+packages. They do not exist at the language level.
+
+\medskip
+
+Namespaces are a meaning to distinguish two modules (compilation units) with the
+same name. Moreover, they are also a standard solution to install libraries.
+
+\medskip
+
+Basically namespaces are a solution to express libraries inside the language and
+not only on the build system side. 
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Writing Mylib with namespaces}
+
+If we want to write the same modules from previous examples ?
+
+\pause
+
+%% \defverbatim{\extwo}{
+\begin{columns}%% [t]{5cm}
+  \column{0.6\textwidth}
+    \begin{OCaml}
+      (* list.ml *)
+      in namespace Mylib
+      ...
+    \end{OCaml}
+
+  \column{0.6\textwidth}
+    \begin{OCaml}
+      (* map.ml *)
+      in namespace Mylib
+      ...
+    \end{OCaml}
+\end{columns}
+%% }
+
+and the results are \textbf{mylib/list.cmo} and \textbf{mylib/map.cmo}.
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using our library}
+
+Both modules List and Map from Mylib cannot be used as standard modules. They
+must be imported into the environment.
+
+\pause
+
+\begin{OCaml}
+with (List; Map) of Mylib
+...
+\end{OCaml}
+
+\pause
+
+But we also want to use them with the module List of the stdlib:
+
+\begin{OCaml}
+with (List as Mylist; Map) of Mylib
+...
+\end{OCaml}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Import possibilities}
+
+Importing every modules one by one from a namespace can be extremely painful. As
+many languages, importing \textbf{all} of them is possible:
+
+\begin{OCaml}
+with (_) of Batteries
+...
+\end{OCaml}
+
+\pause
+
+However, you can choose which module(s) \textbf{not} to import:
+\begin{OCaml}
+with (_; List as _; Hashtbl as _) of Batteries
+and (List as Mylist) of Mylib
+and (Hashtbl) of OCamlPro.Stdlib
+...
+\end{OCaml}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Namespaces and imports as header}
+
+Namespace declaration can only happen at the beginning of the file, before any
+declaration. Importing namespaced modules is only possible after this
+declaration.
+
+\medskip
+
+As a result, namespaces do not exists inside the core language, they are only a
+meaning to describe the environment of compilation. This header simply adds the
+modules into the environment, therefore this mechanism \textbf{does not change}
+the type system.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Namespaces and filesystem}
+In other languages (Java or Scala in particular), namespaces (as packages) are
+tightly related. In this namespace proposal, namespaces are directories on the
+filesystem.
+
+\medskip
+
+For example, every modules in the namespace Ocamlpro.Stdlib can be found (from
+the loadpath) in \texttt{ocamlpro/stdlib}.
+
+\medskip
+
+This solution could harmonize how libraries are installed on the filesystem, and
+would help the compiler and build systems to find compilation units more efficiently.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Big functors}
+
+Big functors are an extension of packs, where every modules are wrapped inside a
+functor. 
+
+\medskip
+
+Since packs where a workaround for namespaces, big functors (or functor-packs)
+where a solution for parametric libraries (or parametric namespaces).
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Big functors in the context of namespaces}
+\end{frame}
+
+\end{document}
