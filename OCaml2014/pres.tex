@@ -214,6 +214,132 @@ where a solution for parametric libraries (or parametric namespaces).
 
 \begin{frame}
 \frametitle{Big functors in the context of namespaces}
+
+We introduce the concept of \textbf{functor units}, i.e. compilation units that
+are functorized over some interfaces. 
+
+\medskip
+
+Those do not exist in the language, only in the build system. Can have
+functorized dependencies if the arguments are the same. Not usable directly in
+the program 
+
+$\rightarrow$ must be \textbf{applied} first.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Compiling a functor unit}
+
+\only<1>{
+
+  Suppose we write an HTTP library that uses a asynchronous monadic combinator
+  to handle requests: there exist multiple libraries that are usable (Async,
+  Lwt).
+
+}
+
+\defverbatim{\exmonad}{
+  \begin{OCaml}
+    (* myHttpLib/asyncMonad.mli *)
+    in namespace MyHttpLib
+
+    type 'a t
+
+    val (>>=) : 'a t -> ('a -> 'b t) -> 'b t
+
+    val return : 'a -> 'a t
+    val bind : 'a t -> ('a -> 'b t) -> 'b t
+    val poll : 'a t -> 'a option
+    ...
+  \end{OCaml}
+}
+
+\only<2>{
+  First, we declare the signature of this monad:
+  \exmonad
+}
+
+\only<3>{
+
+  We suppose we have multple files in our library that uses this monad:
+  \begin{itemize}
+  \item myHttpLib/requestHandler.ml
+  \item myHttpLib/protocol.ml
+  \item ...
+  \end{itemize}
+
+}
+
+\only<4>{
+  Each are compiled with the following command:
+  
+  \begin{block}{}
+    \texttt{ocamlc -c -functor asyncMonad.cmi <filename>.ml}
+  \end{block}
+  \bigskip
+
+  As a result, each compilation unit in \texttt{myHttpLib} are functorized over
+  the \texttt{AsyncMonad} module. The namespace \texttt{MyHttpLib} is parametric
+  over this particular interface.
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Instantiating functor units}
+
+\only<1> {
+  A functor unit must be instantiated to be used. Arguments must be given to the
+  funtor unit to generate a correct compilation unit.
+}
+
+\defverbatim{\lwtbinding}{
+  \begin{OCaml}
+    (* myHttpLib/Lwt/lwt.ml *)
+
+    in namespace MyHttpLib.Lwt
+    with (Lwt) of Ocsigen
+
+    include Lwt
+  \end{OCaml}
+}
+
+\only<2> {
+  The argument we use for this instantiation:
+  \medskip
+  \lwtbinding
+}
+
+\only<3> {
+  This module can be applied on each of the units:
+  
+  \begin{block}{}
+    \texttt{ocamlc -c -apply Lwt <unit>.cmo}
+  \end{block}
+
+  \medskip
+
+  Each of those applied modules will belong to the namespace
+  \texttt{MyHttpLib.Lwt}. 
+}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Functor units: properties}
+
+\begin{itemize}
+\item<1-> The argument of the functor unnit must belong to the same namespace
+\item<2-> The instantiated modules belongs to the same namespace as the argument
+  used at application
+\item<3-> Different instantiations can be used at the same time.
+\item<4-> This solution is expressible in the core language by wrapping each
+  module in a functor that instantiates each of its dependencies. In his
+  configuration, the build system ease the job.
+\end{itemize}
+
 \end{frame}
 
 \end{document}
