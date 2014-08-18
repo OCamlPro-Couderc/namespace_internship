@@ -696,6 +696,26 @@ derniers. Néanmoins, cette technique est loin d'être standard et
 intuitive. L'intégration de namespaces, qui sont ni plus ni moins que des noms
 longs, permet d'éviter ces recompilations inutiles.
 
+L'intérêt d'utiliser un \emph{en-tête} permet de dissocier le mécanisme de
+déclaration et d'import du reste du langage. La syntaxe peut cependant paraître
+peu naturelle, notamment pour l'import de modules : 
+\lstinline{with  ... of...}. 
+D'autres langages utilisent le mot-clé \emph{import} qui semble
+déjà bien plus clair, néanmoins cela nécessiterait d'ajouter un nouveau mot-clé
+au langage (en plus de \texttt{namespace}). Cela n'est bien évidemment pas un
+problème au niveau de l'implémentation, mais plutôt à l'utilisation. OCaml est
+un langage relativement vieux et pratiquement tous les programmes écrits pour
+des versions antérieures seront toujours compilables avec la version
+actuelle. Ajouter un mot-clé peut-être dangereux car celui-ci peut être utilisé
+comme nom de variable dans l'un de ces programmes et par conséquent n'être plus
+compilable. Bien évidemment, modifier le nom d'une variable n'est pas vraiment
+un problème, mais cela est à prendre en considération, et explique pourquoi ce
+choix de mot-clés qui sont déjà utilisés dans le langage. Une syntaxe plus
+naturelle aurait été \texttt{with ... from ...}, mais \texttt{from} est un nom
+de variable légitime, par exemple dans une application qui gérerait des
+messages, où \texttt{from} pourrait être par exemple l'IP ou le nom de
+l'expéditeur.
+
 Leur intérêt se situe particulièrement sur la manière dont peuvent être décrites
 les bibliothèques, comment celles-ci sont installées et l'espoir de
 standardisation dans l'organisation des bibliothèques du langage. En effet,
@@ -914,8 +934,9 @@ pouvoir \texttt{explicitement} les utiliser.
 
 Par conséquent, cette solution peut être imitée dans le langage actuel avec la
 restriction de ne pas avoir d'effets de bords (donc pas de code
-d'initialisation) et de ne pas être gêné par la contrainte du le coup de
-l'application du foncteur qui se fera de nombreuses fois.
+d'initialisation) et de code mutable, et avec la contrainte que le foncteur sera
+chaque fois appliqué (que soit directement ou indirectement), même s'il existe
+déjà une instance de celui-ci appliqué sur le même argument.
 
 \chapter{Conclusion et perspective}
 
@@ -960,7 +981,11 @@ Une autre idée qui serait intéressante serait d'avoir la capacité pour le
 compilateur de compiler un programme en lui donnant simplement le fichier
 d'entrée, comme le ferait \emph{ocamlbuild}. Cela serait possible grâce à la
 correspondance entre les namespaces et le système de fichiers et la
-simplification du calcul des dépendances.
+simplification du calcul des dépendances. Dans cette optique, il serait
+également intéressant de modifier les systèmes de builds actuels pour qu'ils
+utilisent les namespaces et les functor units. Un langage de description de
+programme comme celui d'\emph{ocp-build} pourrait permettre de facilement
+déclarer des unités functorisées et leurs applications.
 
 \bibliographystyle{plain}
 \bibliography{biblio}
