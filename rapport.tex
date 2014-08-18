@@ -1,4 +1,4 @@
-\documentclass[a4paper]{report}
+\documentclass[11pt,a4paper]{report}
 \usepackage[utf8]{inputenc}
 \usepackage[french]{babel}
 \usepackage{amsmath}
@@ -94,8 +94,10 @@ Fessant.
 
 \chapter{Etat de l'art}
 
+\section{Unités de compilation}
+
 Ce sujet de stage touche plusieurs domaines différents, mais particulièrement
-celui de la compilation. Un programme est rarement consistitué d'un seul fichier
+celui de la compilation. Un programme est rarement constitué d'un seul fichier
 mais plus généralement d'un ensemble de fichiers, appelés aussi \emph{unités de
   compilation}. Une unité de compilation possède généralement une interface et
 une implémentation, la première étant une description sur la manière d'utiliser
@@ -112,6 +114,8 @@ compatibilité. Un programme est ainsi un ensemble d'équations à résoudre
 pour pouvoir être correctement compilé \cite{Drossopoulou99afragment}. On
 retrouve d'ailleurs une formalisation simplifiée d'un programme correct en terme
 d'unités de compilation en annexe.
+
+\section{Namespaces et packages}
 
 Le principe de namespaces existe déjà dans plusieurs langages, on peut le
 retrouver par exemple en C++\cite{cppspec} où il est possible de créer des
@@ -681,7 +685,16 @@ efficacement les dépendances pour \emph{ocamldep} par exemple : l'outil est don
 capable de donner de meilleures dépendances puisqu'il sait où se trouve chacun
 des modules donné dans l'en-tête, et peut se permettre de lire les premiers
 tokens des possibles dépendances pour vérifier qu'ils appartiennent au namespace
-recherché. 
+recherché. De plus, cette solution résoud un problème rencontré lors de
+l'utilisation de packs de modules ou de modules d'alias : si l'un des modules
+aliasé ou packagé est modifié, alors le module d'alias (ou le pack) doit être
+recompilé, et ainsi chacun des modules dont il dépend doit également être
+recompilé. Ce goulot d'étranglement peut être évité depuis la 4.02 grâce à la
+technique décrite précédemment puis que le module d'alias peut être compilé
+avant ceux qu'il référence et donc ne pas avoir de dépendances vers ces
+derniers. Néanmoins, cette technique est loin d'être standard et
+intuitive. L'intégration de namespaces, qui sont ni plus ni moins que des noms
+longs, permet d'éviter ces recompilations inutiles.
 
 Leur intérêt se situe particulièrement sur la manière dont peuvent être décrites
 les bibliothèques, comment celles-ci sont installées et l'espoir de
@@ -689,12 +702,26 @@ standardisation dans l'organisation des bibliothèques du langage. En effet,
 cette solution pourrait permettre de ne plus être obligé d'utiliser des outils
 tel \emph{ocamlfind} pour des programmes très simples : le compilateur sait
 exactement quels modules utiliser si une option comme \texttt{-lib} proposée
-précédemment était implémentée.
+précédemment était implémentée. En revanche, le compilateur ne peut créer
+lui-même les dossiers correspondant aux namespaces sur le système de fichiers :
+cela entrainerait une dépendance vers le module \emph{Unix} et donc entamerait
+la portabilité du compilateur, celle-ci étant déjà précaire. Néanmoins, ce
+défaut n'en est pas vraiment un :
+\begin{itemize}
+\item Un utilisateur n'utilisera pas de namespaces pour des programmes simples,
+  leur utilité est vraiment de dissocier des ensembles de modules.
+\item Il est possible de retrouver deux modules avec le même nom dans deux
+  namespaces différents et de les utiliser conjointement. Le seul moyen d'avoir
+  les deux fichiers sources est donc de les dissocier à l'aide de dossier. Il
+  est possible de leur donner un nom différent et de les renommer à la
+  compilation à l'aide de \texttt{-o}, mais cette fonctionnalité n'a pas de sens
+  et n'aide pas à la relecture du programme ou de la bibliothèque.
+\end{itemize}
 
 L'implémentation actuelle modifie légèrement le type des alias de modules
 (introduit dans la verson 4.02) : le type qui à l'origine contient le chemin
 vers l'unité aliasée (ou le module) contient également le namespace d'où
-provient le module. Cette information n'est utilisé qu'à la normalisation des
+provient le module. Cette information n'est utilisée qu'à la normalisation des
 chemins pour justement substituer les alias par le veritable chemin, et par
 conséquent ne modifie pas la sémantique du langage et du système de types.
 En interne, les symboles sont légèrement modifiés pour devenir des noms longs de
@@ -707,6 +734,13 @@ parsable. De ce fait, il est nécessaire de realiaser les expressions lorsque le
 Utiliser un namespace n'est bien évidemment pas une obligation, et tout
 programme compilable à l'aide de la version 4.02 l'est avec le compilateur
 patché pour les namespaces.
+
+L'intérêt également de cette approche est qu'elle permet de mieux comprendre
+l'architecture d'un programme. En effet, il est parfois difficile de relire un
+code qui utilise plusieurs bibliothèques en même temps. L'utilisation de
+l'en-tête permet de connaître la provenance des modules, mais également d'aider
+un utilisateur externe à compiler le programme dans le cas où la chaîne de
+compilation n'est pas disponible.
 
 Au final, cette solution satisfait l'ensemble des contraintes imposées dans la
 problématique.
@@ -853,19 +887,22 @@ possible mise-à-jour:
 
 La problématique des namespaces est un sujet intéressant : il s'agit d'abord
 d'un sujet de discussion récurrent au sein de la communauté, avec de nombreuses
-idées mais sans jamais aucun accord entre les participants. Bien qu'il n'apporte
-pas un gain évident en expressivité, il permet plus de confort pour le
+idées mais sans jamais aucun accord entre les participants. Bien qu'ils n'apportent
+pas un gain évident en expressivité, ils permettent plus de confort pour le
 développeur et l'utilisateur. Les namespaces sont un excellent moyen de décrire
 une bibliothèque dans le langage, mais aussi d'apporter un standard dans la
-manière dont sont installées celles-ci dans le système de fichiers, et permet
+manière dont sont installées celles-ci sur le système de fichiers, et permet
 également de simplifier le travail du compilateur sans nécessiter d'outils
-externes (le moins possible en tout cas).
+externes (le moins possible en tout cas). L'intérêt de notre approche est
+qu'elle ne modifie pas un système de types déjà compliqué et ainsi ne demande
+pas de vérifier et prouver la sûreté et la complétude de la solution, et donc
+qu'elle ne change pas la sémantique actuelle du langage.
 
 L'idée d'avoir un moyen de déclarer des namespaces génériques est intéressante
 et logique dans le contexte de la programmation fonctionnelle où le code d'un
 programme est facilement réutilisable grâce aux fonctions d'ordre supérieur. La
 solution demande un peu d'effort au niveau de la chaîne de compilation
-néanmoins, et n'est pas aussi simple que celle des namespaces.  La solution de
+néanmoins, et n'est pas aussi simple que celle des namespaces. La solution de
 namespaces proposée ici se rapproche en particulier de la mécanique des packages
 de Java ou Scala, avec la généricité des packages de Backpack.
 
@@ -879,9 +916,20 @@ l'ICFP 2014, à l'OCaml Users and Developpers Workshop le 6 septembre.
 Par la suite, il est évident que si cette solution plait il deviendra nécessaire
 de continuer à travailler sur ce prototype, que ce soit en terme de nettoyage du
 code, de refactorisation mais surtout pour modifier ou ajouter certaines
-fonctionnalités dans le but de pouvoir intégrer cette mécanique au langage.
+fonctionnalités dans le but de pouvoir intégrer cette mécanique au langage. En
+ce sens, il pourrait être intéressant par la suite de pouvoir accéder à des
+modules directement dans le programme sans import préalable. Pour cela, il
+faudra définir une syntaxe claire et modifier légèrement le système de types
+pour prendre en compte ces nouvelles informations.
+
+Une autre idée qui serait intéressante serait d'avoir la capacité pour le
+compilateur de compiler un programme en lui donnant simplement le fichier
+d'entrée, comme le ferait \emph{ocamlbuild}. Cela serait possible grâce à la
+correspondance entre les namespaces et le système de fichiers et la
+simplification du calcul des dépendances.
 
 \bibliographystyle{plain}
 \bibliography{biblio}
+
 
 \end{document}
