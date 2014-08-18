@@ -4,6 +4,9 @@
 \usepackage{syntax}
 \usepackage{cite}
 
+
+\setbeamercovered{transparent}
+
 \author{Pierrick COUDERC, Fabrice LE FESSANT, Benjamin Canou, Pierre Chambart}
 
 \title{A Proposal for Non-intrusive Namespaces for OCaml}
@@ -63,7 +66,7 @@ Solutions:
 \only<2>{\item Using \emph{packs} to avoid long names}
 \only<3>{\item Using a module which is simply a list of aliases:}
 \end{itemize}
-\only<3>{\ex1}
+\only<3>{\ex}
 \end{frame}
 
 %% \begin{frame}
@@ -93,7 +96,7 @@ not only on the build system side.
 \begin{frame}[fragile]
 \frametitle{Writing Mylib with namespaces}
 
-If we want to write the same modules from previous examples ?
+If we want to write the same modules from previous examples?
 
 \pause
 
@@ -197,6 +200,25 @@ the loadpath) in \texttt{ocamlpro/stdlib}.
 This solution could harmonize how libraries are installed on the filesystem, and
 would help the compiler and build systems to find compilation units more efficiently.
 
+\end{frame}
+
+\begin{frame}
+\frametitle{Advantages}
+\begin{itemize}[<+>]
+\item Avoid recompilation with simple build system (GNU Make) (bottlenecks
+  with packs and module aliases);
+\item Allows linking of compilation unit with the same name;
+\item No change in the current semantics;
+\item Better handling of ``long names''.
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Drawbacks}
+\begin{itemize}[<+>]
+\item At compile time, the compiler cannot create directories;
+\item
+\end{itemize}
 \end{frame}
 
 \begin{frame}
@@ -331,11 +353,11 @@ $\rightarrow$ must be \textbf{applied} first.
 \frametitle{Functor units: properties}
 
 \begin{itemize}
-\item<1-> The argument of the functor unnit must belong to the same namespace
-\item<2-> The instantiated modules belongs to the same namespace as the argument
+\item<1> The argument of the functor unnit must belong to the same namespace
+\item<2> The instantiated modules belongs to the same namespace as the argument
   used at application
-\item<3-> Different instantiations can be used at the same time.
-\item<4-> This solution is expressible in the core language by wrapping each
+\item<3> Different instantiations can be used at the same time.
+\item<4> This solution is expressible in the core language by wrapping each
   module in a functor that instantiates each of its dependencies. In his
   configuration, the build system ease the job.
 \end{itemize}
