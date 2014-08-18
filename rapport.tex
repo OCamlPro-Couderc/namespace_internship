@@ -866,7 +866,7 @@ capable de comprendre et gérer ces functor units et leur instantiation. L'un de
 objectifs n'est pas atteint. Néanmoins, le gain en expressivité est réel,
 puisqu'il devient possible de définir des bibliothèques génériques.
 
-Certaines restrictions pourraient être levées ou du moins allégée dans une
+Certaines restrictions pourraient être levées ou du moins allégées dans une
 possible mise-à-jour:
 \begin{itemize}
 \item Le fait que le module sur lequel est appliquée la functor unit pourrait ne
@@ -882,6 +882,40 @@ possible mise-à-jour:
   arguments de l'unité en cours de compilation. Cela devrait être également
   possible dans l'implémentation actuelle.
 \end{itemize}
+
+Sans functor-units il serait possible de créer des bibliothèques ayant le même
+comportement. Il suffirait que le code de chaque module doit contenu dans un
+foncteur, et que chacunes des dépendances soient explicitement instanciées en
+utilisant l'argument de ce foncteur. Néanmoins, cette solution a plusieurs
+défauts :
+\begin{itemize}
+\item Pour pouvoir utiliser un module, il faut à chaque fois l'instancier. Cela
+  n'est pas tellement un problème du point de vue des types puisque les
+  foncteurs d'OCaml sont applicatifs, et par conséquent deux instances de
+  foncteurs sont identiques du point de vue des types si leur argument est le
+  même. En revanche, l'application du foncteur a un coup non négligeable, et si
+  code d'initialisation il y a celui-ci est executé à chaque fois. De la même
+  manière, tout effet de bord ou référence sera propre à chaque instance et non
+  pas partagé entre celles-ci malgré qu'elles soient identiques du point de vue
+  du système de types.
+\item Le module pourrait être instancié une seule fois et inclus dans un nouveau
+  module :
+\begin{OCaml}
+(* protocol_lwt.ml *)
+module M = Protocol.Make(Lwt)
+include M
+\end{OCaml}
+Néanmoins, dans cette solution les dépendances sont appliquées à chaque fois, le
+compilateur est incapable de détecter qu'il y a déjà eu application. Au
+contraire, l'application d'une functor units nécessite que ses dépendances qui
+sont functorisées sur les mêmes arguments existe dans le même namespace pour
+pouvoir \texttt{explicitement} les utiliser. 
+\end{itemize}
+
+Par conséquent, cette solution peut être imitée dans le langage actuel avec la
+restriction de ne pas avoir d'effets de bords (donc pas de code
+d'initialisation) et de ne pas être gêné par la contrainte du le coup de
+l'application du foncteur qui se fera de nombreuses fois.
 
 \chapter{Conclusion et perspective}
 
