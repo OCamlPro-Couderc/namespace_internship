@@ -488,7 +488,7 @@ La première partie de la solution était donc de reprendre une partie du code d
 big functors. Effet, chaque module qui doit faire partie du pack functorizé doit
 être compilé de la manière suivante :
 \begin{verbatim}
-ocamlc -c -functor Arg my_module.ml
+ocamlc -c -functor arg.cmi my_module.ml
 \end{verbatim}
 L'option indique que le module \texttt{Arg} dans \texttt{my\_module.ml} est un
 argument de foncteur, sa signature est celle de \texttt{arg.cmi} et par
@@ -503,7 +503,7 @@ Ainsi, l'unité de compilation résultante est ce que l'on appelle une
 \emph{functor unit}, ou unité functorizée. 
 
 Les functor units ne sont pas utilisable en l'état : il est impossible de les
-utiliser dans du code dit ``standard'' (sauf par d'autre functo units dépendant
+utiliser dans du code dit ``standard'' (sauf par d'autre functor units dépendant
 des mêmes arguments) et ne peuvent être liée directement au
 moment de l'édition des liens. Pour pouvoir les utiliser, il faut être capable
 de donner une version appliquée de ces unités, autrement dit une instance de
@@ -511,7 +511,7 @@ celles-ci appliquées sur une implémentation. On introduit alors une nouvelle
 option \texttt{-apply} au compilateur pour donner ces arguments et créer ces
 instances. Par exemple, l'instanciation du module précédent serait :
 \begin{verbatim}
-ocamlc -c -apply Impl my_module.cmo
+ocamlc -c -apply inmpl my_module.cmo
 \end{verbatim}
 Ceci va créer une nouvelle unité de compilation \texttt{my\_module.cmo} qui
 donnera \texttt{impl.cmo} à la functor unit et donnera donc un module instancié
@@ -522,9 +522,8 @@ nom que celui de l'unité functorizée. Il sera donc impossible de faire cohabit
 les deux modules dans un même programme, hors l'instance dépend du
 foncteur. Pour cela, il faudra que le résultat de l'application soit dans un
 nouveau namespace, qui correspondrait donc à un namespace qui serait
-l'instanciation d'un autre sur un ensemble d'arguments. On ajoute pour cela une
-option \texttt{-ns} qui permet alors de donner le namespace dans lequel doit se
-trouver l'unité résultant de l'application.
+l'instanciation d'un autre sur un ensemble d'arguments. Le namespace résultant
+de l'application est celui de l'argument donné à la functor unit.
 
 Les propriétés et restrictions de cette implémentation sont les suivantes :
 \begin{itemize}
@@ -534,7 +533,7 @@ Les propriétés et restrictions de cette implémentation sont les suivantes :
 \item Les dépendances functorizées doivent être dans le même namespace;
 \item Le résultat de l'application ne peut appartenir au même namespace;
 \item Les arguments donnés pour l'application doivent résider dans le même
-  namespace que le résultat;
+  namespace;
 \item Il doit exister une version appliquée de chaque dépendances functorizée
   dans le namespace pour pouvoir appliquer l'unité, et ces dépendances
   instanciées doivent appartenir au même namespace.
@@ -823,8 +822,8 @@ supposera que ces deux modules sont suffisant, il ne s'agit pas d'un exemple de
 la véritable bibliothèque Cohttp). La compilation de ces modules serait :
 \begin{verbatim}
 ocamlc -c cohttp/asyncMonad.mli
-ocamlc -c -functor AsyncMonad cohttp/requestHandler.ml
-ocamlc -c -functor AsyncMonad cohttp/protocol.ml
+ocamlc -c -functor cohttp/asyncMonad.cmi cohttp/requestHandler.ml
+ocamlc -c -functor cohttp/asyncMonad.cmi cohttp/protocol.ml
 \end{verbatim}
 
 Dans cet exemple, le module Protocol ne fait jamais explicitement référence à
@@ -852,8 +851,8 @@ Il est désormais possible d'instancier la bibliothèque sur cette monade :
 
 \begin{verbatim}
 ocamlc -c cohttp/lwt/monad.ml
-ocamlc -c -apply Monad -ns Cohttp.Lwt cohttp/requestHandler.cmo
-ocamlc -c -apply Monad -ns Cohttp.Lwt cohttp/protocol.cmo
+ocamlc -c -apply cohttp/lwt/monad.cmo cohttp/requestHandler.cmo
+ocamlc -c -apply cohttp/lwt/monad.cmo cohttp/protocol.cmo
 \end{verbatim}
 
 Si finalement on écrit un serveur très simple à l'aide de Cohttp.Lwt :
