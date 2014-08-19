@@ -154,7 +154,15 @@ Finalement, il est important de s'intéresser aux nombreuses discussions de la
 communauté\cite{ocaml-platform} et particulièrement aux différentes propositions
 émises par certains mainteneurs du compilateur\cite{ocaml-proposals}, notamment
 un langage formel de description d'environnement\cite{remy-scherer-prop} et
-décrivant ainsi les possibilités attendues pour des namespaces.
+décrivant ainsi les possibilités attendues pour des namespaces. Jusqu'ici dans
+le langage plusieurs solutions alternatives étaient disponibles pour palier au
+manque de namespaces : les noms longs, les packs de modules et les modules
+utilisés comme namespaces à l'aide d'alias. Des exemples concrets sont donnés à
+la fois dans le chapitre suivant mais aussi en annexe \ref{appendix-soa}, où une
+formalisation simplifiée est donnée pour exprimer ce que représente en terme de
+dépendances et d'unités de compilation un programme correct. Cette annexe
+présente les changements intervenus avec l'ajout des alias de modules et des
+dépendances dites faibles. 
 
 \chapter{Problématique}
 
@@ -592,23 +600,26 @@ lorsqu'il s'agit d'utiliser une bibliothèque externe et ne demanderait donc plu
 un système de \emph{build} complet. On pourrait par exemple imaginer un
 \texttt{-lib} qui prendrait un nom de dossier en argument et s'occuperait alors
 de lire les namespaces et unités de compilation depuis un répertoire
-d'installation standard.
+d'installation standard. Avoir un répertoire standard est envisageable grâce à
+OPAM qui est devenu le système de gestion de paquets le plus utilisé au sein de
+la communauté OCaml. On pourrait ainsi utiliser le compilateur comme le ferait
+\emph{ocamlfind} qui s'occupe de donner les arguments nécessaire à la compilation.
 
 Cette proposition de namespace vise ainsi à standardiser la manière dont sont
 installées les bibliothèques externes.
 
 \subsection{Extension et redéfinition de namespaces}
 
-Par essence, les namespaces ne sont pas fixes, au contraire des modules. Il
-s'agit par ailleurs l'une des caractéristiques qui joue en la faveur de ne pas
-utiliser les modules pour simuler les namespaces. Ainsi, il est possible
-d'ajouter des modules dans un namespace, et donc par conséquent en redéfinir
-certains. Cela n'impacte en aucun cas le namespace de base et ne modifie pas ses
-fichiers : ces redéfinitions et extensions sont gérées selon l'ordre des unités
-de compilation données au moment de l'édition des liens. Chaque bibliothèque
-s'installe dans un dossier à part, l'arborescence des unités de compilation
-n'est pas commune à tous. En effet, cela pourrait être particulièrement
-dangereux :
+Par essence, les namespaces ne sont pas fermés, au contraire des modules qui
+une fois compilé ne peuvent être étendus. Il s'agit par ailleurs de l'une des
+caractéristiques qui joue en la faveur de ne pas utiliser les modules pour
+simuler les namespaces. Ainsi, il est possible d'ajouter des modules dans un
+namespace, et donc par conséquent en redéfinir certains. Cela n'impacte en aucun
+cas le namespace de base et ne modifie pas ses fichiers : ces redéfinitions et
+extensions sont gérées selon l'ordre des unités de compilation données au moment
+de l'édition des liens. Chaque bibliothèque s'installe dans un dossier à part,
+l'arborescence des unités de compilation n'est pas commune à tous. En effet,
+cela pourrait être particulièrement dangereux :
 \begin{itemize}
 \item Si une biliothèque redéfinit des modules d'un namespace, les unités de
   compilation déjà existantes seraient écrasées;
@@ -992,6 +1003,7 @@ déclarer des unités functorisées et leurs applications.
 \appendix
 
 \chapter{Formalisme simple de l'édition des liens avant et après 4.02}
+\label{appendix-soa}
 
 Cette annexe est tirée de la proposition de namespaces pour 4.02. Celle-ci est
 découpée en deux parties : un état de l'art sur la manière de simuler les
