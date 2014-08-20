@@ -7,7 +7,7 @@
 
 \setbeamercovered{transparent}
 
-\author{Pierrick COUDERC, Fabrice LE FESSANT, Benjamin Canou, Pierre Chambart}
+\author{Pierrick COUDERC, Fabrice LE FESSANT, Benjamin CANOU, Pierre CHAMBART}
 
 \title{A Proposal for Non-intrusive Namespaces for OCaml}
 
@@ -119,6 +119,7 @@ If we want to write the same modules from previous examples?
 %% }
 
 and the results are \textbf{mylib/list.cmo} and \textbf{mylib/map.cmo}.
+This namespace declaration must be the first statement of the module.
 \end{frame}
 
 \begin{frame}[fragile]
@@ -161,8 +162,6 @@ with (_) of Batteries
 However, you can choose which module(s) \textbf{not} to import:
 \begin{OCaml}
 with (_; List as _; Hashtbl as _) of Batteries
-and (List as Mylist) of Mylib
-and (Hashtbl) of OCamlPro.Stdlib
 ...
 \end{OCaml}
 
@@ -209,7 +208,8 @@ would help the compiler and build systems to find compilation units more efficie
   with packs and module aliases);
 \item Allows linking of compilation unit with the same name;
 \item No change in the current semantics;
-\item Better handling of ``long names''.
+\item Basically some kind of ``long names'', more expressive thanks to import
+  constraints.
 \end{itemize}
 \end{frame}
 
@@ -217,7 +217,6 @@ would help the compiler and build systems to find compilation units more efficie
 \frametitle{Drawbacks}
 \begin{itemize}[<+>]
 \item At compile time, the compiler cannot create directories;
-\item
 \end{itemize}
 \end{frame}
 
@@ -229,24 +228,63 @@ functor.
 
 \medskip
 
-Since packs where a workaround for namespaces, big functors (or functor-packs)
-where a solution for parametric libraries (or parametric namespaces).
+Since packs were a workaround for namespaces, big functors are a workaround for
+parametric namespaces.
 
 \end{frame}
 
+\begin{frame}[fragile]
+  \frametitle{Simplest solution for parametric namespaces}
+    \begin{OCaml}
+      (* myHttpLib/requestHandler.ml *)
+      in namespace MyHttpLib
+      module Make (Arg : AsyncMonad) = 
+        struct 
+          ...
+        end
+    \end{OCaml}
+
+    \pause 
+
+    \begin{OCaml}
+      (* myHttpLib/protocol.ml *)
+      in namespace MyHttpLib
+      module Make (Arg : AsyncMonad) = 
+        struct
+          module RequestHandler = RequestHandler.Make(Arg)
+          ...
+        end
+    \end{OCaml}
+\end{frame}
+
 \begin{frame}
-\frametitle{Big functors in the context of namespaces}
+  \frametitle{Drawbacks of this solution}
+  \begin{itemize}[<+->]
+    \item Multiple instantiation of each module
 
-We introduce the concept of \textbf{functor units}, i.e. compilation units that
-are functorized over some interfaces. 
+      $\rightarrow$ Each module must instantiate its dependencies to use them;
+    \item No sharing: references are local to each instance, initialisation code
+      computed each time
+    
+      $\rightarrow$ Terrible performance.
+  \end{itemize}
+\end{frame}
 
-\medskip
+\begin{frame}
+  \frametitle{Big functors in the context of namespaces}
 
-Those do not exist in the language, only in the build system. Can have
-functorized dependencies if the arguments are the same. Not usable directly in
-the program 
+  We introduce the concept of \textbf{functor units}, i.e. compilation units that
+  are functorized over some interfaces. 
 
-$\rightarrow$ must be \textbf{applied} first.
+  \medskip
+
+  \begin{itemize}
+    \item Only on the build system side;
+    \item Application results on a new compilation unit;
+    \item Each functor instantiated \alert{once};
+    \item When applying the functor-unit, we look for already applied
+      dependencies.
+  \end{itemize}
 
 \end{frame}
 
@@ -255,9 +293,9 @@ $\rightarrow$ must be \textbf{applied} first.
 
 \only<1>{
 
-  Suppose we write an HTTP library that uses a asynchronous monadic combinator
-  to handle requests: there exist multiple libraries that are usable (Async,
-  Lwt).
+  Suppose we write an HTTP library (as previous example) that uses an
+  asynchronous monadic combinator to handle requests: there exist multiple
+  libraries that are usable (Async, Lwt).
 
 }
 
@@ -284,7 +322,7 @@ $\rightarrow$ must be \textbf{applied} first.
 
 \only<3>{
 
-  We suppose we have multple files in our library that uses this monad:
+  We suppose we have multiple files in our library that uses this monad:
   \begin{itemize}
   \item myHttpLib/requestHandler.ml
   \item myHttpLib/protocol.ml
@@ -337,31 +375,79 @@ $\rightarrow$ must be \textbf{applied} first.
   This module can be applied on each of the units:
   
   \begin{block}{}
-    \texttt{ocamlc -c -apply Lwt <unit>.cmo}
+    \texttt{ocamlc -c -apply (...)/lwt.cmi (...)/<unit>.cmo}
   \end{block}
 
   \medskip
 
   Each of those applied modules will belong to the namespace
-  \texttt{MyHttpLib.Lwt}. 
+  \texttt{MyHttpLib.Lwt} $\equiv$ same namespace as the argument. 
 }
 
 \end{frame}
 
 
+%% \begin{frame}
+%% \frametitle{Functor units: properties}
+
+%% \begin{itemize}
+%% \item<1> The argument of the functor unnit must belong to the same namespace
+%% \item<2> The instantiated modules belongs to the same namespace as the argument
+%%   used at application
+%% \item<3> Different instantiations can be used at the same time.
+%% \item<4> This solution is expressible in the core language by wrapping each
+%%   module in a functor that instantiates each of its dependencies. In his
+%%   configuration, the build system ease the job.
+%% \end{itemize}
+
+%% \end{frame}
+
 \begin{frame}
-\frametitle{Functor units: properties}
-
-\begin{itemize}
-\item<1> The argument of the functor unnit must belong to the same namespace
-\item<2> The instantiated modules belongs to the same namespace as the argument
-  used at application
-\item<3> Different instantiations can be used at the same time.
-\item<4> This solution is expressible in the core language by wrapping each
-  module in a functor that instantiates each of its dependencies. In his
-  configuration, the build system ease the job.
+\frametitle{Functor units: restrictions}
+\begin{itemize}[<+->]
+\item Each cmi given to \texttt{-functor} must belong to the same namespace as
+  the functor unit currently compiled;
+\item Functor units can have dependencies:
+  \begin{itemize}
+    \item Standard compilation units
+    \item Functor units with the \alert{same arguments}
+    \item Their arguments
+  \end{itemize}
+\item No currification
+\item Compunits used for application must belong to the same namespace.
 \end{itemize}
+\end{frame}
 
+\begin{frame}
+\frametitle{Prototype}
+
+Each feature introduced is implemented in a prototype based on the 4.02
+revision of the compiler.
+
+Available at ... 
+\end{frame}
+
+\begin{frame}
+\frametitle{Conclusion and future work}
+
+Our solution may be not the best, its purpose is to revive the discussions with
+a proposal and a working prototype. 
+
+\medskip
+
+Future work:
+\begin{itemize}
+  \item Cleaning and refactoring the code
+  \item For functor-units:
+    \begin{itemize}
+      \item Add currification
+      \item Leverage the dependencies restrictions:
+
+        a functor unit can depend on functor units whose arguments are a subset
+        of its own.
+    \end{itemize}
+  \item Community ideas
+\end{itemize}
 \end{frame}
 
 \end{document}

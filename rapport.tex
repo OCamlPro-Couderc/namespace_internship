@@ -158,11 +158,11 @@ décrivant ainsi les possibilités attendues pour des namespaces. Jusqu'ici dans
 le langage plusieurs solutions alternatives étaient disponibles pour palier au
 manque de namespaces : les noms longs, les packs de modules et les modules
 utilisés comme namespaces à l'aide d'alias. Des exemples concrets sont donnés à
-la fois dans le chapitre suivant mais aussi en annexe \ref{appendix-soa}, où une
-formalisation simplifiée est donnée pour exprimer ce que représente en terme de
-dépendances et d'unités de compilation un programme correct. Cette annexe
-présente les changements intervenus avec l'ajout des alias de modules et des
-dépendances dites faibles. 
+la fois dans le chapitre suivant mais aussi en annexe \ref{appendix-soa} (page
+\pageref{appendix-soa}), où une formalisation simplifiée est donnée pour
+exprimer ce que représente en terme de dépendances et d'unités de compilation un
+programme correct. Cette annexe présente les changements intervenus avec l'ajout
+des alias de modules et des dépendances dites faibles.
 
 \chapter{Problématique}
 
@@ -986,6 +986,12 @@ ce sens, il pourrait être intéressant par la suite de pouvoir accéder à des
 modules directement dans le programme sans import préalable. Pour cela, il
 faudra définir une syntaxe claire et modifier légèrement le système de types
 pour prendre en compte ces nouvelles informations.
+
+De plus, il serait intéressant de lever certaines restrictions sur les functor
+units. En l'état actuel il n'y a pas de currification, mais cela ne devrait pas
+être particulièrement difficile à ajouter. De plus, on pourrait supposer que les
+dépendances puissent être functorisées sur un sous-ensemble des argument de
+l'unité en cours de compilation.
 
 Une autre idée qui serait intéressante serait d'avoir la capacité pour le
 compilateur de compiler un programme en lui donnant simplement le fichier
