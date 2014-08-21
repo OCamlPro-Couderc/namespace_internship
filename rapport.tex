@@ -559,6 +559,82 @@ jeu de test et d'exemples.
 
 \chapter{Exemples d'utilisation et analyse}
 
+\section{Environnement de travail}
+
+\subsection{Implémentation de namespaces}
+
+Le premier problème, outre comprendre l'intérêt d'un mécanisme de namespaces,
+est de comprendre l'architecture du compilateur. Dans notre cas, il s'agit de
+comprendre comment se fait l'ajout d'identifiants dans l'environnement de
+compilation. L'un des problèmes majeurs est que celui-ci est très peu documenté,
+et par conséquent peut-être difficile à appréhender. En particulier, il faut
+comprendre quels sont les mécanismes qui permettront de lier deux unités de
+compilation de même nom et d'être capable de les différencier.
+
+Pour ce faire, il était nécessaire de modifier le format de ces unités pour y
+rajouter l'information de namespaces mais aussi spécifier le namespace de
+chacune des unités importées. Cela n'était néanmoins pas suffisant, puisqu'il
+fallait modifier le format des symboles générés par le compilateur pour intégrer
+cette information. Cela peut paraitre simple, mais le compilateur nécessite un
+certains nombre de changements pour notamment propager les informations de
+namespaces, mais aussi de calculer l'ensemble des modules importés dans l'entête
+de fichier, qui se fait en plusieurs passes pour chacun des namespaces utilisés : 
+\begin{itemize}
+\item Les modules importés explicitement (aliasés ou non) sont récupérés;
+\item Le reste des modules (s'il y a un \texttt{\_} dans la contrainte) sont
+  cherchés dans l'ensemble des unités accessibles au compilateur (dans les
+  sous-dossiers correspondant au namespace);
+\item Finalement, tous les modules cachés (\lstinline{as _}) sont enlevés.
+\end{itemize}
+
+Chacun des modules importés doit ensuite être ajouté dans l'environnement en
+tant qu'alias (car le namespace n'est pas exprimable dans le
+langage). L'environnement est alors modifié pour prendre en compte cette
+nouvelle information.
+
+Au final, plusieurs implémentations ont été essayée, jusqu'à arriver à la
+version actuelle :
+\begin{enumerate}
+\item Créer explicitement dans l'arbre de syntaxe abstraite des alias de modules
+  (où ces alias peuvent déclarer un namespace, ce qui n'est pas exprimable dans
+  la syntaxe).
+\item Pour chacun des namespaces, on crée une structure (et des sous-structures
+  pour les sous-namespace, etc). De cette manière, il devient possible
+  d'utiliser un namespace comme un module de première classe (en argument de
+  foncteur).
+\item Ne plus modifier l'AST pour directement ajouter les informations dans
+  l'environnement.
+\end{enumerate}
+Le deux premières solutions étaient les plus simples à mettre en place : le
+typeur so'ccupait de rajouter toutes les informations dans l'environnement et de
+générer les bons identifiants et chemins. La seconde notamment aurait pu
+permettre plus d'expressivité, mais aurait posé problème lors de l'importation
+de tous les modules d'un namespace, puisqu'il est difficile de savoir quels sont
+les modules qui seront ajoutés dans la structure pour
+l'utilisateur. Néanmoins, ces deux solutions n'étaient pas efficaces
+puisqu'elles créaient explicitement des alias qui étaient exportés et donc
+auraient causé des conflits. La troisième solution corrige ce problème car
+seulement l'environnement est modifié et les alias non exportés.
+
+\subsection{Big functors}
+
+L'ajout des functor units demande en revanche de comprendre un patch qui n'a
+jamais été intégré : il faut comprendre son fonctionnement, analyser les
+différences avec le code actuel (puisqu'il était destiné à une ancienne version)
+mais aussi comment l'intégrer et le réutiliser intelligement.
+
+Les functor-units ne touchent pratiquement pas à l'environnement de typage ou au
+typeur lui-même : les changements se font principalement au niveau du format des
+unités de compilation et de la génération de code. Le challenge est ici de
+comprendre comment le code est généré (pour réaliser les unité functorisées), et
+comment utiliser ce code pour créer les instanciations. L'avantage du
+compilateur est qu'il possède un même langage intermédiaire pour les deux
+\emph{back-end} (bytecode et assembleur) : le lambda. L'idée est donc de générer
+un même lambda (ou du moins réutiliser celui-ci) des deux côtés de la même
+manière. Cependant, le lambda généré est légèrement différent et demande donc
+des adaptations.
+
+
 \section{Namespaces simples}
 
 \subsection{Namespaces hiérarchiques et installation}
