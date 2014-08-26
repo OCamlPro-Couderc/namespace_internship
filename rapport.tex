@@ -530,11 +530,12 @@ faire des arguments de ce foncteur. Ainsi, il devient possible d'avoir des packs
 instanciés sous différentes implémentations.
 
 Cette fonctionnalité, qui a été proposée et implémentée par Fabrice Le Fessant
-était destinée à la version 3.12 du compilateur, mais n'a jamais été fusionnée
-dans les sources officielles. Le patch est néanmoins disponible sur le site
-d'OCamlPro. L'idée ici est donc d'imaginer et d''implémenter un mécanisme qui
-permettrait d'avoir des namespaces ``génériques'', functorizés et ainsi de
-permettre une meilleure réutilisabilité du code.
+\cite{lefessant-bigfunctors} était destinée à la version 3.12 du compilateur,
+mais n'a jamais été fusionnée dans les sources officielles. Le patch est
+néanmoins disponible sur le site d'OCamlPro. L'idée ici est donc d'imaginer et
+d''implémenter un mécanisme qui permettrait d'avoir des namespaces
+``génériques'', functorizés et ainsi de permettre une meilleure réutilisabilité
+du code.
 
 L'intérêt ici est donc de savoir dans quelle mesure le code était réutilisable
 et facilement adaptable, mais aussi de trouver une solution simple à ce
@@ -542,71 +543,205 @@ problème. On peut voir cette fonctionnalité comme la contrepartie des ``trous'
 de Backpack pour Haskell \cite{KilpatrickDJM14}. Ainsi, la solution à envisager
 doit être capable d'avoir des modules qui soient abstraits et aussi de pouvoir
 avoir des dépendances qui soient elle-mêmes functorizées sur les mêmes
-arguments.
+arguments. Le résultat sera ce que l'on appelera des \emph{functor units}, ou
+aussi des unité functorisées, qui sont un cas particulier d'unités de
+compilation.
 
-La première partie de la solution était donc de reprendre une partie du code des
-big functors. Effet, chaque module qui doit faire partie du pack functorizé doit
-être compilé de la manière suivante :
-\begin{verbatim}
-ocamlc -c -functor arg.cmi my_module.ml
-\end{verbatim}
-L'option indique que le module \texttt{Arg} dans \texttt{my\_module.ml} est un
-argument de foncteur, sa signature est celle de \texttt{arg.cmi} et par
-conséquent il n'y a pas de dépendance vers l'unité de compilation
-\texttt{arg.cmo}. De plus, si \texttt{My_module} a des dépendances vers d'autres
-unités, celles-ci doivent :
+Ainsi, l'utilisation de cet functor units se fait en deux temps :
 \begin{itemize}
-\item soit être functorizées sur les mêmes arguments;
-\item soit ne pas être functorizées.
-\end{itemize}
-Ainsi, l'unité de compilation résultante est ce que l'on appelle une
-\emph{functor unit}, ou unité functorizée. 
-
-Les functor units ne sont pas utilisable en l'état : il est impossible de les
-utiliser dans du code dit ``standard'' (sauf par d'autre functor units dépendant
-des mêmes arguments) et ne peuvent être liée directement au
-moment de l'édition des liens. Pour pouvoir les utiliser, il faut être capable
-de donner une version appliquée de ces unités, autrement dit une instance de
-celles-ci appliquées sur une implémentation. On introduit alors une nouvelle
-option \texttt{-apply} au compilateur pour donner ces arguments et créer ces
-instances. Par exemple, l'instanciation du module précédent serait :
-\begin{verbatim}
-ocamlc -c -apply impl.cmi my_module.cmo
-\end{verbatim}
-Ceci va créer une nouvelle unité de compilation \texttt{my\_module.cmo} qui
-donnera \texttt{impl.cmo} à la functor unit et donnera donc un module instancié
-sur \texttt{Impl} et donc utilisable normalement. 
-
-Cela étant, cette solution n'est pas complète : le module instancié aura le même
-nom que celui de l'unité functorizée. Il sera donc impossible de faire cohabiter
-les deux modules dans un même programme, hors l'instance dépend du
-foncteur. Pour cela, il faudra que le résultat de l'application soit dans un
-nouveau namespace, qui correspondrait donc à un namespace qui serait
-l'instanciation d'un autre sur un ensemble d'arguments. Le namespace résultant
-de l'application est celui de l'argument donné à la functor unit.
-
-Les propriétés et restrictions de cette implémentation sont les suivantes :
-\begin{itemize}
-\item Le module donné à \texttt{-functor} doit forcément être une unité de
-  compilation qui appartient au même namespace qui celui déclaré dans le fichier
-  \texttt{.ml} de l'unité functorizée;
-\item Les dépendances functorizées doivent être dans le même namespace;
-\item Le résultat de l'application ne peut appartenir au même namespace;
-\item Les arguments donnés pour l'application doivent résider dans le même
-  namespace;
-\item Il doit exister une version appliquée de chaque dépendances functorizée
-  dans le namespace pour pouvoir appliquer l'unité, et ces dépendances
-  instanciées doivent appartenir au même namespace.
+\item Le fichier est d'abord compilé, et certaines de ses dépendances seornt
+  déclarées comme étant les arguments du foncteur;
+\item La functor unit compilée précédemment peut ensuite être appliquée sur des
+  arguments pour obtenir une version instanciée.
 \end{itemize}
 
-De cette manière, il est donc possible de créer des namespaces dont tous les
-modules sont functorizés, et donc ensuite de laisser à l'utilisateur le soin
-d'instancier ce namespace sur l'implémentation de son choix. Un exemple
-d'utilisation est donné dans le chapitre suivant.
+Par exemple, supposons le fichier \texttt{mod.ml} suivant :
+\begin{OCaml}
+(* mod.ml *)
+type t = Sign.t option
+
+let create i = Some (Sign.create i)
+let print = function
+  | None -> print_endline ``No value''
+  | Some v -> print_endline (Sign.to_string v)
+\end{OCaml}
+
+Ce fichier contient entre autres une dépendances vers un module
+\texttt{Sign}. Celui-ci n'étant pas un module interne déclaré par le fichier, il
+s'agit par conséquent d'un module externe, dont la signature est :
+\begin{OCaml}
+(* sign.mli *)
+type t
+val create: int -> t
+val to_string: t -> string
+\end{OCaml}
+
+L'idée ici est de transformer automatiquement \texttt{mod.ml} en un foncteur qui
+prendrait pour argument un module du type de \texttt{Sign}, c'est-à-dire :
+\begin{OCaml}
+(* mod.ml (representation interne) *)
+(functor (Sign: module type of Sign) ->
+  struct 
+   ... (* code originel de mod.ml *)
+  end
+) 
+\end{OCaml}
+La compilation de \texttt{mod.ml} se fera de la manière suivante :
+\begin{verbatim}
+ocamlc -c -functor sign.cmi mod.ml
+\end{verbatim}
+
+Le but est donc d'avoir une unité de compilation qui est entièrement un
+foncteur, et non pas qu'elle contienne un unique module qui soit le foncteur
+(comme beaucoup de module existants, comme Map ou Set par exemple). Néanmoins,
+\texttt{Mod} n'est pas utilisable tel quel puisqu'il n'existe aucun moyen de
+représenter un tel module dans le système de type : une unité de compilation est
+forcément une structure, par conséquent il n'est pas possible de l'utiliser de
+la manière suivante :
+\begin{OCaml}
+module M = Mod(...)
+\end{OCaml}
+Ainsi la solution est de créer ce foncteur après le typage, au moment de générer
+le \emph{lambda code} qui sera ensuite donné aux \emph{backend} du compilateur
+pour être transformé soit en bytecode, soit en code natif. Par conséquent, pour
+que \texttt{Mod} soit utilisable, il est nécessaire de de créer une application
+de ce foncteur qui créera alors une unité de compilation standard.  Encore une
+fois, ce foncteur n'existe pas au niveau de la signature du module, le seul
+moyen est de laisser le compilateur se charger de l'application.
+
+Supposons par exemple que l'on souhaite appliquer \texttt{Mod} sur le module
+\texttt{impl.ml} suivant :
+\begin{OCaml}
+(* impl.ml *)
+type t = { value : int }
+
+let create value = { value }
+let to_string v = string_of_int v.value
+\end{OCaml}
+
+La signature de \texttt{Impl} est compatible avec celle de \texttt{Sign}, il est
+donc possible de l'utiliser comme argument. Ce que va alors créer le compilateur
+est une version de \texttt{Mod} appliquée sur \texttt{Impl}, dont la
+représentation interne serait en quelques sorte :
+\begin{OCaml}
+include Mod(Impl)
+\end{OCaml}
+
+Ainsi, la compilation se ferait de la manière suivante :
+\begin{verbatim}
+ocamlc -c -apply impl.cmi mod.cmo
+\end{verbatim}
+Néanmoins, le module instancié ainsi créé aura le même nom que que le foncteur,
+par conséquent ils ne pourront cohabiter dans un même programme : la solution
+sera d'utiliser un namespace pour les différencier. Ainsi, plusieurs solutions
+sont possibles :
+\begin{enumerate}
+\item Donner le namespace de la version appliquée avec un -ns
+\item Inférer le namespace à partir des arguments donnés pour l'application, ce
+  qui restreint à ce que tous les arguments appartiennent au même namespace et
+  qu'il soit différent de celui de la \emph{functor unit}.  
+\end{enumerate}
+
+La seconde solution peut paraitre restrictive, mais elle est en réalité
+logique. En effet, supposons par exemple que l'on souhaite donner comme argument
+pour l'application un module de la Stdlib, au hasard \texttt{String}. Sa
+signature ne peut pas être directement coercée vers celle de \texttt{Sign},
+puisqu'il n'existe pas de valeur \lstinline{to_string} de type 
+\lstinline{t -> string} (et la fonction \lstinline{create} n'a pas exactement le
+comportement voulu, puisqu'ici le principe est de créer des valeurs de type
+\texttt{t} pour encapsuler des entiers). La solution est donc de créer un module
+intermédiaire qui depuis \texttt{String} créera ces valeurs :
+\begin{OCaml}
+(* string.ml *)
+in namespace MyNamespace
+
+type t = string
+let create = string_of_int
+let to_string (s : t) = s
+\end{OCaml}
+
+Généralement, un module ne sera pas directement applicable, ou bien c'est qu'il
+a été écrit dans l'optique de convenir à cette signature précise (ou qu'il
+s'agit d'une signature standard). De ce fait, la plupart du temps il sera
+nécessaire d'écrire un module avec une signature compatible, et par conséquent
+le déclarer (ou non) dans un namespace. Au final, cette solution a été retenue
+dans le prototype actuelle, mais pourrait être changée sans problème.
 
 \medskip
 
-Un prototype de cette solution est disponible à l'adresse suivante, et avec un
+Néanmoins, c'est solution n'est pas entièrement satisfaisante. En effet, il est
+tout à fait possible d'écrire des namespaces dont tous les modules sont des
+functor units, qu'il faudra ensuite appliquer pour obtenir un nouveau namespace
+qui serait en quelque sorte l'instanciation du premier. Le problème à résoudre
+est la gestion des dépendances entre ces modules. En effet, si on reprend
+l'exemple précédent, et qu'on souhaite créer un fichier \texttt{list.ml} qui
+utilise directement \texttt{mod.ml} (la version functorisée donc), le seul moyen
+que celui-ci puisse l'utiliser est d'être capable de lui donner un argument. Par
+exemple, si \texttt{Mod} contenait simplement un module \texttt{Make} qui
+contienne tout son code, alors \texttt{list.ml} devrait être de la forme :
+\begin{OCaml}
+(* list.ml *)
+module Make(Sign: module type of Sign) =
+  struct
+    module Mod = Mod.Make(Sign)
+    type t = Mod.t list
+    let print_all l = List.iter Mod.print l
+  end
+\end{OCaml}
+
+Le module \texttt{List} contiendrait lui aussi un foncteur qui appliquerait
+\texttt{Mod}. Donc par conséquent, \texttt{List} dans notre optique serait aussi
+une unité functorisée, dont la représentation interne serait :
+\begin{OCaml}
+(* list.ml (representation interne) *)
+(functor (Sign: module type of Sign) ->
+  struct
+    module Mod = Mod(Sign)
+    type t = Mod.t list
+    let print_all l = List.iter Mod.print l
+  end)
+\end{OCaml}
+Mais cette représentation n'est pas efficace, pour plusieurs raisons :
+\begin{itemize}
+\item Si on souhaite utiliser conjointement \texttt{Mod} et \texttt{List},
+  \texttt{Mod} sera instanciée une première fois par le compilateur à l'aide de
+  \texttt{-apply} et une seconde fois dans \texttt{List}.
+\item Puisqu'il s'agira de deux instances différentes, elles ne partageront pas
+  leurs références et le code d'initialisation sera répété deux fois ce qui
+  pourrait avoir des conséquences dramatiques., malgré qu'elles soient
+  ``identiques'' du point de vue du système de types.
+\end{itemize}
+Par conséquent, il faut que \texttt{List} soit capable d'utiliser une version
+déjà instanciée de \texttt{Mod} pour être efficace, l'astuce est alors de la donner
+comme argument de foncteur à \texttt{List} :
+\begin{OCaml}
+(* list.ml (representation interne) *)
+(functor (Sign: ...) (Mod: module type of Mod(Sign)) ->
+   ...
+)
+\end{OCaml}
+Ainsi la gestion des dépendances se fait de la manière suivante :
+\begin{itemize}
+\item Une functor unit peut dépendre d'autres functor units si leurs arguments
+  sont les mêmes, et donc dépendre d'une functor unit implique d'être aussi
+  functorisé. Une functor unit peut évidemment avoir une dépendance qui elle
+  même n'est pas functorisée puisqu'il n'y a pas de soucis d'instanciation
+  multiple.
+\item L'application d'une functor unit n'est possible que s'il existe une
+  version appliquée de ses dépendances (puisqu'il s'agit de ses arguments
+  de foncteur).
+\end{itemize}
+
+Finalement, cette solution permet d'avoir un ensemble de modules functorisés sur
+les mêmes arguments, et dont les dépendances sont gérées par le compilateur pour
+éviter de multiples instanciations. Néanmoins, cette solution au contraire des
+namespaces ``simples'' est entièrement du côté du système de \emph{build}. De
+plus, il n'est pas possible de currifier les foncteurs en l'état actuel, bien
+que cela serait possible.
+
+\medskip
+
+Un prototype est disponible à l'adresse suivante, et avec un
 jeu de test et d'exemples.
 
 \chapter{Contexte, exemples d'utilisation et analyse}
@@ -671,25 +806,6 @@ l'utilisateur. Néanmoins, ces deux solutions n'étaient pas efficaces
 puisqu'elles créaient explicitement des alias qui étaient exportés et donc
 auraient causé des conflits. La troisième solution corrige ce problème car
 seulement l'environnement est modifié et les alias non exportés.
-
-\subsection{Big functors}
-
-L'ajout des functor units demande en revanche de comprendre un patch qui n'a
-jamais été intégré : il faut comprendre son fonctionnement, analyser les
-différences avec le code actuel (puisqu'il était destiné à une ancienne version)
-mais aussi comment l'intégrer et le réutiliser intelligement.
-
-Les functor-units ne touchent pratiquement pas à l'environnement de typage ou au
-typeur lui-même : les changements se font principalement au niveau du format des
-unités de compilation et de la génération de code. Le challenge est ici de
-comprendre comment le code est généré (pour réaliser les unité functorisées), et
-comment utiliser ce code pour créer les instanciations. L'avantage du
-compilateur est qu'il possède un même langage intermédiaire pour les deux
-\emph{back-end} (bytecode et assembleur) : le lambda. L'idée est donc de générer
-un même lambda (ou du moins réutiliser celui-ci) des deux côtés de la même
-manière. Cependant, le lambda généré est légèrement différent et demande donc
-des adaptations.
-
 
 \section{Namespaces simples}
 
@@ -1015,66 +1131,66 @@ justifie du fait que les versions instanciées sont toujours dépendantes des
 functor units qu'elles instancient : tout le code se trouve dans ces functor
 units, les instances ne font qu'appliquer les arguments.
 
-\subsection{Réflexion sur l'implémentation et le choix des functor units}
+%% \subsection{Réflexion sur l'implémentation et le choix des functor units}
 
-La solution pour avoir des namespaces functorizée est moins élégante que celle
-des namespaces : en effet, ici tout se passe du côté de la chaîne de compilation
-et nécessite de mettre en place un système de build ou d'utiliser un outil
-capable de comprendre et gérer ces functor units et leur instantiation. L'un des
-objectifs n'est pas atteint. Néanmoins, le gain en expressivité est réel,
-puisqu'il devient possible de définir des bibliothèques génériques.
+%% La solution pour avoir des namespaces functorizée est moins élégante que celle
+%% des namespaces : en effet, ici tout se passe du côté de la chaîne de compilation
+%% et nécessite de mettre en place un système de build ou d'utiliser un outil
+%% capable de comprendre et gérer ces functor units et leur instantiation. L'un des
+%% objectifs n'est pas atteint. Néanmoins, le gain en expressivité est réel,
+%% puisqu'il devient possible de définir des bibliothèques génériques.
 
-Certaines restrictions pourraient être levées ou du moins allégées dans une
-possible mise-à-jour:
-\begin{itemize}
-\item Le fait que le module sur lequel est appliquée la functor unit pourrait ne
-  pas appartenir au même namespace (on pourrait utiliser Lwt directement), mais
-  se justifie car il est rare que l'interface du module que l'on souhaite
-  utiliser lors de l'instantiation ait une interface directement compatible. Le
-  plus souvent, il faudra écrire un module qui \emph{bind} l'argument vers la
-  bonne interface.
-\item Dans la version actuelle, la currification n'est pas possible. Ce n'est
-  que par soucis de simplicité et cela serait réalisable.
-\item En terme de dépendances, dans les big functors deux unités sont
-  compatibles si les arguments de la dépendances sont un sous-ensemble des
-  arguments de l'unité en cours de compilation. Cela devrait être également
-  possible dans l'implémentation actuelle.
-\end{itemize}
+%% Certaines restrictions pourraient être levées ou du moins allégées dans une
+%% possible mise-à-jour:
+%% \begin{itemize}
+%% \item Le fait que le module sur lequel est appliquée la functor unit pourrait ne
+%%   pas appartenir au même namespace (on pourrait utiliser Lwt directement), mais
+%%   se justifie car il est rare que l'interface du module que l'on souhaite
+%%   utiliser lors de l'instantiation ait une interface directement compatible. Le
+%%   plus souvent, il faudra écrire un module qui \emph{bind} l'argument vers la
+%%   bonne interface.
+%% \item Dans la version actuelle, la currification n'est pas possible. Ce n'est
+%%   que par soucis de simplicité et cela serait réalisable.
+%% \item En terme de dépendances, dans les big functors deux unités sont
+%%   compatibles si les arguments de la dépendances sont un sous-ensemble des
+%%   arguments de l'unité en cours de compilation. Cela devrait être également
+%%   possible dans l'implémentation actuelle.
+%% \end{itemize}
 
-Sans functor-units il serait possible de créer des bibliothèques ayant le même
-comportement. Il suffirait que le code de chaque module doit contenu dans un
-foncteur, et que chacunes des dépendances soient explicitement instanciées en
-utilisant l'argument de ce foncteur. Néanmoins, cette solution a plusieurs
-défauts :
-\begin{itemize}
-\item Pour pouvoir utiliser un module, il faut à chaque fois l'instancier. Cela
-  n'est pas tellement un problème du point de vue des types puisque les
-  foncteurs d'OCaml sont applicatifs, et par conséquent deux instances de
-  foncteurs sont identiques du point de vue des types si leur argument est le
-  même. En revanche, l'application du foncteur a un coup non négligeable, et si
-  code d'initialisation il y a celui-ci est executé à chaque fois. De la même
-  manière, tout effet de bord ou référence sera propre à chaque instance et non
-  pas partagé entre celles-ci malgré qu'elles soient identiques du point de vue
-  du système de types.
-\item Le module pourrait être instancié une seule fois et inclus dans un nouveau
-  module :
-\begin{OCaml}
-(* protocol_lwt.ml *)
-module M = Protocol.Make(Lwt)
-include M
-\end{OCaml}
-Néanmoins, dans cette solution les dépendances sont appliquées à chaque fois, le
-compilateur est incapable de détecter qu'il y a déjà eu application. Au
-contraire, l'application d'une functor units nécessite que ses dépendances qui
-sont functorisées sur les mêmes arguments existe dans le même namespace pour
-pouvoir \texttt{explicitement} les utiliser. 
-\end{itemize}
+%% Sans functor-units il serait possible de créer des bibliothèques ayant le même
+%% comportement. Il suffirait que le code de chaque module doit contenu dans un
+%% foncteur, et que chacunes des dépendances soient explicitement instanciées en
+%% utilisant l'argument de ce foncteur. Néanmoins, cette solution a plusieurs
+%% défauts :
+%% \begin{itemize}
+%% \item Pour pouvoir utiliser un module, il faut à chaque fois l'instancier. Cela
+%%   n'est pas tellement un problème du point de vue des types puisque les
+%%   foncteurs d'OCaml sont applicatifs, et par conséquent deux instances de
+%%   foncteurs sont identiques du point de vue des types si leur argument est le
+%%   même. En revanche, l'application du foncteur a un coup non négligeable, et si
+%%   code d'initialisation il y a celui-ci est executé à chaque fois. De la même
+%%   manière, tout effet de bord ou référence sera propre à chaque instance et non
+%%   pas partagé entre celles-ci malgré qu'elles soient identiques du point de vue
+%%   du système de types.
+%% \item Le module pourrait être instancié une seule fois et inclus dans un nouveau
+%%   module :
+%% \begin{OCaml}
+%% (* protocol_lwt.ml *)
+%% module M = Protocol.Make(Lwt)
+%% include M
+%% \end{OCaml}
+%% Néanmoins, dans cette solution les dépendances sont appliquées à chaque fois, le
+%% compilateur est incapable de détecter qu'il y a déjà eu application. Au
+%% contraire, l'application d'une functor units nécessite que ses dépendances qui
+%% sont functorisées sur les mêmes arguments existe dans le même namespace pour
+%% pouvoir \texttt{explicitement} les utiliser. 
+%% \end{itemize}
 
-Par conséquent, cette solution peut être imitée dans le langage actuel avec la
-restriction de ne pas avoir d'effets de bords (donc pas de code
-d'initialisation) et de code mutable, et avec la contrainte que le foncteur sera
-chaque fois appliqué (que soit directement ou indirectement), même s'il existe
-déjà une instance de celui-ci appliqué sur le même argument.
+%% Par conséquent, cette solution peut être imitée dans le langage actuel avec la
+%% restriction de ne pas avoir d'effets de bords (donc pas de code
+%% d'initialisation) et de code mutable, et avec la contrainte que le foncteur sera
+%% chaque fois appliqué (que soit directement ou indirectement), même s'il existe
+%% déjà une instance de celui-ci appliqué sur le même argument.
 
 \chapter{Conclusion et perspective}
 
@@ -1154,16 +1270,19 @@ déclarer des unités functorisées et leurs applications.
 \begin{grammar}
 <module_name> = <uident>
 
+<longident> ::= <uident>
+\alt <longident> `.' <uident>
+
 <header> ::= <namespace_decl> <imports>
 \alt <imports>
 
-<namespace_decl> ::= `in' `namespace' <mod_longident>
+<namespace_decl> ::= `in' `namespace' <longident>
 
 <imports> ::= <import> <imports> 
 
 <import> ::= (`with'|`and') <ns_conf> 
 
-<ns_conf> ::= <mod_longident> `.' `(' <modules_constraints> `)'
+<ns_conf> ::= <longident> `.' `(' <modules_constraints> `)'
 
 <modules_constraints> ::= <module_constraint>
 \alt <module_constraint> `;' <module_constraints>
