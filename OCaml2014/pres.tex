@@ -131,7 +131,7 @@ must be imported into the environment.
 \pause
 
 \begin{OCaml}
-with (List; Map) of Mylib
+with MyLib.(List; Map)
 ...
 \end{OCaml}
 
@@ -140,7 +140,7 @@ with (List; Map) of Mylib
 But we also want to use them with the module List of the stdlib:
 
 \begin{OCaml}
-with (List as Mylist; Map) of Mylib
+with MyLib.(List as Mylist; Map)
 ...
 \end{OCaml}
 
@@ -153,7 +153,7 @@ Importing every modules one by one from a namespace can be extremely painful. As
 many languages, importing \textbf{all} of them is possible:
 
 \begin{OCaml}
-with (_) of Batteries
+with Batteries.(_)
 ...
 \end{OCaml}
 
@@ -161,7 +161,7 @@ with (_) of Batteries
 
 However, you can choose which module(s) \textbf{not} to import:
 \begin{OCaml}
-with (_; List as _; Hashtbl as _) of Batteries
+with Batteries.(_; List as _; Hashtbl as _)
 ...
 \end{OCaml}
 
@@ -359,7 +359,7 @@ parametric namespaces.
     (* myHttpLib/Lwt/lwt.ml *)
 
     in namespace MyHttpLib.Lwt
-    with (Lwt) of Ocsigen
+    with Ocsigen.(Lwt)
 
     include Lwt
   \end{OCaml}
