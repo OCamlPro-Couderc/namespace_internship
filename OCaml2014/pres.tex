@@ -3,6 +3,7 @@
 \usepackage{listings}
 \usepackage{syntax}
 \usepackage{cite}
+\usepackage{color}
 
 
 \setbeamercovered{transparent}
@@ -18,10 +19,10 @@
                       language=[Objective]Caml,
                       breaklines=true,
                       %% commentstyle=\color{purple},
-                      %% stringstyle=\color{red},
-                      %% identifierstyle=\ttfamily,
-                      %% keywordstyle=\color{blue},
-                      %% basicstyle=\footnotesize\tt,
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
                       otherkeywords={namespace, abstract}
                     }
                   }
@@ -40,7 +41,8 @@ OCaml.
 
 \medskip
 
-What we present is a proposal with a prototype of working namespace mechanism.
+What we present is a proposal with a prototype of working namespace mechanism,
+and a solution for parametric namespaces based on the \emph{big functor} patch.
 \end{frame}
 
 \begin{frame}[fragile]
@@ -170,7 +172,7 @@ with Batteries.(_; List as _; Hashtbl as _)
 \begin{frame}
 \frametitle{Namespaces and imports as header}
 
-Namespace declaration can only happen at the beginning of the file, before any
+Namespace declaration can only occur at the beginning of the file, before any
 declaration. Importing namespaced modules is only possible after this
 declaration.
 
@@ -206,10 +208,13 @@ would help the compiler and build systems to find compilation units more efficie
 \begin{itemize}[<+>]
 \item Avoid recompilation with simple build system (GNU Make) (bottlenecks
   with packs and module aliases);
+\item Better dependencies thanks to the header;
+\item Hierarchical namespace possible;
 \item Allows linking of compilation unit with the same name;
 \item No change in the current semantics;
 \item Basically some kind of ``long names'', more expressive thanks to import
-  constraints.
+  constraints;
+\item Not mandatory: any library compilable with the 4.02 version can still be compiled.
 \end{itemize}
 \end{frame}
 
@@ -217,6 +222,7 @@ would help the compiler and build systems to find compilation units more efficie
 \frametitle{Drawbacks}
 \begin{itemize}[<+>]
 \item At compile time, the compiler cannot create directories;
+\item ?
 \end{itemize}
 \end{frame}
 
@@ -270,11 +276,28 @@ parametric namespaces.
   \end{itemize}
 \end{frame}
 
+
+\begin{frame}[fragile]
+\frametitle{Better solution: dependencies as argument}
+
+    \begin{OCaml}
+      (* myHttpLib/protocol.ml *)
+      in namespace MyHttpLib
+      module Make (Arg : AsyncMonad) 
+                  (RH: module type of ``RequestHandler.Make(Arg)'') = 
+        struct
+          ...
+        end
+    \end{OCaml}
+
+    Drawback: can quickly become impossible to manage with multiple dependencies.
+\end{frame}
+
 \begin{frame}
   \frametitle{Big functors in the context of namespaces}
 
   We introduce the concept of \textbf{functor units}, i.e. compilation units that
-  are functorized over some interfaces. 
+  are functorized over some interfaces, that does the previous solution automatically.
 
   \medskip
 
@@ -433,6 +456,7 @@ Future work:
         of its own.
     \end{itemize}
   \item Community ideas
+  \item Coercion from namespace to module
 \end{itemize}
 \end{frame}
 

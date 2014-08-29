@@ -1,14 +1,29 @@
 \documentclass[11pt,a4paper]{report}
 \usepackage[utf8]{inputenc}
 \usepackage[french]{babel}
+\usepackage[left=2.5cm,right=2.5cm]{geometry}
 \usepackage{amsmath}
+\usepackage[usenames,dvipsnames]{color}
 \usepackage{listings}
 \usepackage{syntax}
 \usepackage{cite}
 
-\title{Proposition, formalisation et implémentation d'un mécanisme de namespaces
-  pour OCaml}
-\author{Pierrick COUDERC}
+\title{
+  \textbf{Rapport de stage} \\
+  Master 2 Recherche : \emph{Science et Technique du Logiciel}
+  \\ - \\
+  Proposition, formalisation et implémentation d'un mécanisme de namespaces
+  pour OCaml\\ %% - \\
+  %% \textsc{Inria}, en collaboration avec \textsc{OCamlPro}\\ - \\
+}
+
+\author{\textsc{Pierrick Couderc} \\
+  Université Pierre et Marie Curie - Paris VI \\ - \\
+  Sous la direction de \textsc{Fabrice Le Fessant} \\
+  Inria \& OCamlPro
+}
+
+\date{6 Septembre 2014}
 
 \setlength{\grammarindent}{8em} % increase separation between LHS/RHS 
 
@@ -16,10 +31,69 @@
                   {\lstset{
                       language=[Objective]Caml,
                       breaklines=true,
-                      %% commentstyle=\color{purple},
-                      %% stringstyle=\color{red},
-                      %% identifierstyle=\ttfamily,
-                      %% keywordstyle=\color{blue},
+                      %% commentstyle=\tt\color{bluegreen},
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+
+\lstnewenvironment{C}
+                  {\lstset{
+                      language=C,
+                      breaklines=true,
+                      %% commentstyle=\tt\color{bluegreen},
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+\lstdefinelanguage{JavaScript}{
+  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break},
+  keywordstyle=\color{blue}\bfseries,
+  ndkeywords={class, export, boolean, throw, implements, import, this},
+  ndkeywordstyle=\color{darkgray}\bfseries,
+  identifierstyle=\color{black},
+  sensitive=false,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{purple}\ttfamily,
+  stringstyle=\color{red}\ttfamily,
+  morestring=[b]',
+  morestring=[b]"
+}
+
+\lstnewenvironment{JS}
+                  {\lstset{
+                      language=Javascript,
+                      breaklines=true,
+                      %% commentstyle=\tt\color{bluegreen},
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+
+\lstnewenvironment{Python}
+                  {\lstset{
+                      language=Python,
+                      breaklines=true,
+                      %% commentstyle=\tt\color{bluegreen},
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
                       basicstyle=\footnotesize\tt,
                       otherkeywords={namespace, abstract}
                     }
@@ -34,14 +108,46 @@
 
 !!!TODO!!!
 
+
+\begin{abstract}
+Les namespaces peuvent se situer à plusieurs niveaux dans un programme, mais
+toujours avec la même utilité : distinguer des noms par un mécanisme de
+``provenance'', sans quoi ceux-ci auraient pu entrer en conflit. Par exemple,
+les namespaces de C++ permettent de distinguer des valeurs, des fonctions ou
+des classes, et les packages de Java ou Scala de distinguer et d'organiser des
+classes.  Le sujet des namespaces est récurrent au sein de la communauté OCaml,
+sans toutefois avoir réussi à en dégager une véritable solution. La notion
+d'espaces de noms existe déjà dans le langage grâce notamment au système très
+efficace de modules, mais trouve ses limitations au moment du passage à
+l'échelle. 
+
+L'objectif de ce stage est d'imaginer et implémenter une solution qui
+viserait à satisfaire l'ensemble des participants ou une majorité, mais surtout
+en proposant une solution effective et implémentée dans le compilateur OCaml. Le
+résultat est un méchanisme d'en-tête de fichiers qui permet de déclarer le
+namespace de l'unité de compilation mais aussi d'importer des modules provenant
+d'autres namespaces, tout en s'inspirant de l'expressivité d'autres langages, en
+particulier Scala.
+
+De plus, OCaml est un langage particulièrement efficace à l'utilisation grâce à
+son mécanisme de foncteur, qui permet d'abstraire des modules sur une interface
+et de l'instancier le plus tardivement possible. Un autre objectif est de
+transcrire cette idée au niveau des namespaces. Le résultat est un nouveau type
+d'unités de compilation appelées \emph{unités functorisées}, qui permettent de
+définir des namespaces dont certaines des composantes sont totalement
+abstraites. L'intérêt est de pouvoir définir des bibliothèques génériques
+utilisant des implémentations définies par l'utilisateur et qui peuvent être
+instanciées tardivement.
+\end{abstract}
+
 \tableofcontents
 
 \chapter{Introduction}
 
 Dans le monde des langages, il est souvent utile de pouvoir réutiliser des noms
 de fonctions ou de valeurs à différents endroits d'un programme, notamment en
-terme de lisibilité du code écrit, mais également pour l'utilisateur qui doit
-utiliser ces fonctions. Si de tels moyens n'existaient pas, en d'autre terme
+terme de lisibilité du code écrit, mais également pour l'utilisateur qui devra
+faire appels à celles-ci. Si de tels moyens n'existaient pas, en d'autre terme
 s'il n'existait aucune portée dans le langage, l'utilisateur se verrait
 contraint d'écrire et d'imaginer des noms affreusement longs pour éviter de
 potentiels conflits à la compilation et/ou à l'exécution de son
@@ -62,14 +168,17 @@ que l'on nomme un \textbf{espace de noms} (ou \texttt{namespace}).
 
 Il existe de nombreux moyens de simuler des espaces de noms, par exemple à
 l'aide de la portée lexicale ou syntaxique dans le programme : tout nom défini à
-l'intérieur d'un bloc n'est visible que par lui et par conséquent, aucune
-fonction ou valeur de même nom en dehors n'est plus atteignable, et ce qui est
-déclaré dans le bloc n'est pas visible vers l'extérieur. Ce principe de portée
+l'intérieur d'un bloc n'est visible que par lui et par conséquent aucune
+fonction ou valeur de même nom n'est plus atteignable, et ce qui est déclaré
+dans le bloc n'est pas visible vers l'extérieur. Ce principe de portée
 s'applique aussi bien aux blocs, aux fonctions mais aussi aux \emph{unités de
   compilation} (autrement dit, aux fichiers). Ce mécanisme de portée est un fait
 admis dans les langages de programmation, bien qu'il existe des langages où la
-portée est différente, notamment Javascript où les seuls espaces de noms sont
-les fonctions \cite{EcmaScript}.
+notion de portée est différente, notamment Javascript où les seuls espaces de
+noms sont les fonctions \cite{EcmaScript}\footnote{En vérité, toute déclaration
+  est remontée au début du corps de la fonction. On peut donc définir une
+  fonction dans un \texttt{if (false) \{ ... \}} et tout de même y accéder
+  partout ailleurs dans le corps de la fonction.}.
 
 OCaml en particulier est un langage fonctionnel fortement typé et possédant
 notamment un système de modules dont l'utilité est de pouvoir définir des
@@ -92,21 +201,149 @@ discriminants que le nom du module pour permettre une édition des liens
 correcte. Autrement dit, il devient nécessaire d'avoir une notion d'espace de
 noms pour les unité de compilation.
 
+L'intérêt de ce stage est donc de trouver une solution à ce problème en étudiant
+les moyens mis en oeuvre par les autres langages pour résoudre ce problème. En
+outre, un autre objectif plus original est de trouver une solution pour utiliser
+des foncteurs au niveau de ces \emph{namespaces} et ainsi obtenir des
+bibliothèques paramétriques mais dont la gestion et l'instanciation de ces
+foncteurs se ferait automatiquement par le compilateur. La difficulté réside
+particulièrement dans la compréhension du compilateur OCaml, la manière dont
+sont liées entre-elles les unités de compilation et la compréhension du langage
+intermédiaire pour générer ces foncteurs particuliers qui n'existent pas dans le
+langage.
+
 Ce stage a été réalisé au sein de l'Inria et en collaboration avec OCamlPro,
 sous la direction de Fabrice Le Fessant.
 
-\chapter{Etat de l'art}
+\chapter{\'{E}tat de l'art}
+
+\section{Espace de noms, portée lexicale et dynamique}
+
+Comme expliqué dans l'introduction, la portée lexicale est devenu quelque chose
+d'admis dans le milieu des langages de programmation. La spécification d'ALGOL
+60 \cite{Naur:1960:RAL:367236.367262} en donne d'ailleurs une définition,
+définissant le \emph{Scope} comme étant \emph{``l'ensemble des instructions dans
+  lequel la déclaration de l'indentifiant et sa valeur sont
+  valides''}. Cette notion de portée est très importante puisqu'elle permet de
+réutiliser des noms localement sans affecter ceux déjà déclarés avec le même
+nom. Prenons un exemple écrit en C :
+\begin{C}
+void f(x) {
+  if (x == 1) {
+    int y = 42;
+  }
+  printf("%d\n", y};
+}
+\end{C}
+Celui-ci ne sera pas correct, peut importe le résultat du test \texttt{if (x ==
+  1)}. La variable est déclarée dans le bloc de l'instruction \texttt{if} et par
+conséquent ne peut être utilisée à l'extérieur. On parlera ici de portée
+lexicale, puisqu'il est possible de savoir en lisant le code que la variable y
+ne sera pas accessible. On parle également de portée statique car le compilateur
+sait exactement à la compilation quelle variable utiliser. Par exemple :
+\begin{C}
+int x = 2;
+void f() {
+  printf("%d\n", x}; // Affichera 2
+}
+
+void g() {
+  int x = 4;
+  f(); // Affichera 2
+}
+\end{C}
+
+La portée dynamique est à opposer à la portée statique. La variable utilisée
+par une fonction dépendra alors du contexte d'appel. Par exemple, si on reprend
+le code précédent mais en supposant que la portée en C est dynamique :
+\begin{C}
+int x = 2;
+void f() {
+  printf("%d\n", x}; // Affichera 2
+}
+
+void g() {
+  int x = 4;
+  f(); // Affichera 4
+}
+\end{C}
+Alors \texttt{g()} affichera 4 car au moment de l'appel de \texttt{f()}, la
+variable x a pour valeur 4. Ainsi, la portée dynamique est résolue à l'exécution
+et par conséquent les erreurs interviendront à ce moment précis.
+
+Néanmoins, il peut être intéressant de voir que certains langages comme Python
+\cite{python-spec} ont un concept de portée lexicale seulement pour le corps des
+fonctions, et est dynamique pour le reste. Par exemple, l'exemple suivant en
+Python est correct :
+\begin{Python}
+def f(): 
+    if True:
+        x = 2
+    print x
+
+f() # Affichera 2
+\end{Python}
+Contrairement à notre premier exemple en C, \texttt{x} est déclaré dans le corps
+du \texttt{if} mais peut-être accédé en dehors de celui-ci. Il en va de même
+pour les fonctions locales :
+\begin{Python}
+def f():
+    if True:
+        def g():
+            print 42
+    g()
+
+f() # Affichera 42
+\end{Python}
+
+Enfin, il est également intéressant de citer Javascript où le concept de portée
+lexicale est bien plus faible. En effet, le code suivant :
+\begin{JS}
+function f() {
+  if (true) {
+    function g(i) {
+      console.log("Well..." +i);
+    };
+  }
+  if (false) {
+    function g(i) {
+      console.log("How?!" +i);
+    };
+  }
+  g(42);
+}
+
+f();
+\end{JS}
+affichera ``How?!42''. Le principe de Javascript est que toutes les déclarations
+sont remontées au début du corps de la fonction où elles sont utilisées. Pour
+des valeurs normales, l'interpréteur différencie tout de même déclaration et
+affection, mais pour des fonctions déclarées de la manière suivante il ne fait
+pas la distinction. Pour faire cette différence, il aurait fallu que la fonction
+\texttt{g} soit écrite de la mankère suivante : 
+\begin{JS}
+var g = function(i) { ... }
+\end{JS}
+
+Bien que n'étant pas fondamentalement utile pour le sujet traité, il est
+vraiment important de comprendre le rôle de la portée et des espaces de noms
+dans n'importe quel programme. S'il n'y avait aucune différenciation, les
+risques pourraient être catastrophiques, puisque certaines variables pourraient
+entraîner des erreurs à cause d'un type différent ou d'une valeur erronée, voire
+des valeurs inattendues dans le cas de langages où la mutabilité est
+possible. Notre problématique touche des objets à un niveau bien plus haut
+puisqu'il s'agit de différencier des unités des compilation dont les noms
+pourraient être en conflit.
 
 \section{Unités de compilation}
 
-Ce sujet de stage touche plusieurs domaines différents, mais particulièrement
-celui de la compilation. Un programme est rarement constitué d'un seul fichier
-mais plus généralement d'un ensemble de fichiers, appelés aussi \emph{unités de
-  compilation}. Une unité de compilation possède généralement une interface et
-une implémentation, la première étant une description sur la manière d'utiliser
-la seconde. Il s'agit de l'interface d'entrée pour d'autres programmes pour
-pouvoir utiliser cette unité de compilation. On parle alors de compilation
-séparée \cite{Cardelli97programfragments}. 
+Un programme est rarement constitué d'un seul fichier mais plus généralement
+d'un ensemble de fichiers, appelés aussi \emph{unités de compilation}. Une unité
+de compilation possède généralement une interface et une implémentation, la
+première étant une description sur la manière d'utiliser la seconde. Il s'agit
+de l'interface d'entrée pour d'autres programmes pour pouvoir utiliser le code
+de celle-ci. On parle alors de compilation séparée
+\cite{Cardelli97programfragments}.
 
 Ainsi, un programme est un ensemble d'unité de compilation ordonnée selon leur
 dépendance. Néanmoins, ces unités ne peuvent être liées entre elles qu'à la
@@ -131,7 +368,7 @@ et en particulier Scala\cite{scalaspec}. En effet, dans ces deux langages les
 packages permettent d'organiser des classes sous une hiérarchie et ainsi
 d'utiliser de manière conjointes des classes de même nom en utilisant le chemin
 complet. Néanmoins, ce choix se justifie dans ces deux langages puisque la 
-classe est l'unité de base le langage, il est donc nécessaire d'avoir ce
+classe est l'unité de base du langage. Il est donc nécessaire d'avoir ce
 mécanisme de noms longs pour les différencier. En revanche, les clauses
 d'importation de Scala permettent une meilleure expressivité en donnant la
 possibilité d'importer plusieurs classes d'un package mais aussi en les aliasant
@@ -142,16 +379,10 @@ import another_package.{Obj2 => O; Point}
 \end{verbatim}
 où dans ce cas précis l'objet \texttt{Obj} ainsi que tous ceux dans
 \texttt{mypackage} sont importés, à l'exception de \texttt{Point}, tandis que
-\texttt{Obj2} (renommé en \texttt{O}) et \texttt{Point} sont import de
+\texttt{Obj2} (renommé en \texttt{O}) et \texttt{Point} sont importés de
 \texttt{another_package}.
 
-OCaml quand à lui possède déjà son système de modules\cite{Leroy00} qui fait
-office de mécanisme de namespaces : les fonctions et valeurs peuvent être ainsi
-préfixées d'un chemin, permettant alors de différencier celles-ci à l'exécution
-et à la compilation. Néanmoins, deux unités de compilation ne peuvent coexister
-dans un programme si celles-ci ont un même nom.
-
-De plus un travail récent a été fait autour d'Haskell pour résoudre notamment
+Un travail récent a été fait autour d'Haskell pour résoudre notamment
 le problème de compilation séparé\cite{KilpatrickDJM14} : en effet, le système
 de modules d'Haskell ne possède pas de \emph{signatures}, et par conséquent
 n'est pas capable de compiler de manière distribuée un programme. Une unité de
@@ -159,12 +390,20 @@ compilation n'est compilable qu'à partir du moment où toutes ses dépendances 
 sont. Le résultat est un langage de packages au dessus d'Haskell, qui permet en
 outre de \emph{typer-checker} un programme sans donner d'implémentation pour
 chacune des dépendances grâce à des interfaces de modules, mais également un
-système de packages pour distinguer les modules.
+système de packages pour distinguer les modules. L'intérêt de cette solution est
+qu'elle met également en avant un mécanisme de \emph{trous} pour générer des
+packages plus ou moins génériques, où l'instanciation peut se faire tardivement.
 
-Finalement, il est important de s'intéresser aux nombreuses discussions de la
-communauté\cite{ocaml-platform} et particulièrement aux différentes propositions
-émises par certains mainteneurs du compilateur\cite{ocaml-proposals}, notamment
-un langage formel de description d'environnement\cite{remy-scherer-prop}, idée
+OCaml quand à lui possède déjà son système de modules\cite{Leroy00} qui fait
+office de mécanisme de namespaces : les fonctions et valeurs peuvent être ainsi
+préfixées d'un chemin, permettant alors de différencier celles-ci à l'exécution
+et à la compilation. Néanmoins, deux unités de compilation ne peuvent coexister
+dans un programme si celles-ci ont le même nom.
+
+Il est important de s'intéresser aux nombreuses discussions de la communauté
+\cite{ocaml-platform} et particulièrement aux différentes propositions émises
+par certains mainteneurs du compilateur\cite{ocaml-proposals}, notamment un
+langage formel de description d'environnement\cite{remy-scherer-prop}, idée
 initialement introduite dans la proposition de Fabrice Le
 Fessant\cite{lefessant-prop} et décrivant ainsi les possibilités attendues pour
 des namespaces. Jusqu'ici dans le langage plusieurs solutions alternatives
@@ -174,19 +413,28 @@ exemples concrets sont donnés à la fois dans le chapitre suivant mais aussi en
 annexe \ref{appendix-soa} (page \pageref{appendix-soa}), où une formalisation
 simplifiée est donnée pour exprimer ce que représente en terme de dépendances et
 d'unités de compilation un programme correct. Cette annexe présente les
-changements intervenus avec l'ajout des alias de modules et des dépendances
-dites faibles.
+changements intervenus avec l'ajout des alias au de modules (qui existaient mais
+sont désormais partie intégrante du système de types) et des dépendances dites
+faibles.
+
+L'intérêt de namespaces dans le langage est réel comme le prouvent les
+discussions et les différentes propositions. Malheureusement, ces derniers
+étaient bien souvent trop spécifiques à un besoin ou ne plaisaient pas à
+l'ensemble des participants. Finalement, aucun accord n'a pu être trouvé et la
+communauté s'est contenté d'utiliser les techniques décrites dans la section
+suivante.
 
 \section{Namespaces et OCaml}
 
-Dans l'implémentation actuelle d'OCaml, il est immpossible de lier deux unités
-de compilation de même nom, ou du moins d'y référer de manière explicite. En
-effet, lorsqu'un programme est compilé en \emph{bytecode}, le code
-d'initialisation des deux modules sera bien executé, en revanche seul le module
-lié en premier sera effectivement accessible. Dans le cas de compilation native
-(en assembleur), l'éditeur de lien ne pourra lier les deux unités : puisque les
-symboles générés seront les mêmes, le compilateur ne pourra générer un programme
-qui sera correct.
+Dans l'implémentation actuelle d'OCaml, il est impossible de lier deux unités de
+compilation de même nom, ou du moins d'y référer de manière explicite. En effet,
+lorsqu'un programme est compilé en \emph{bytecode}, le code d'initialisation des
+deux modules sera bien executé, en revanche seul le module lié en premier sera
+effectivement accessible. Dans le cas de compilation native (en assembleur), le
+compilateur ne pourra générer un programme qui sera correct étant donné que les
+deux unités définiront des symboles identiques (par exemple, si les modules
+s'appellent tous deux \texttt{Mod}, chacun aura forcément le symbole
+\texttt{camlMod_entry} défini dans son assembleur).
 
 La solution adoptée par l'ensemble des développeurs est de préfixer leurs
 modules par le nom de la bibliothèque dont elle est issue. Cette solution est
@@ -201,30 +449,30 @@ nom. Cette solution est déjà plus intéressante, car elle permet de distribuer
 une bibliothèque sous la forme d'un seul objet, mais est également plus souple à
 l'utilisation. En effet, chaque module est donc accessible à l'aide du chemin
 \texttt{<nom\_du\_pack>.<nom\_de\_l'unité>} : le compilateur transforme chacune
-des unités du pack en sous-module. Ainsi, il suffit d'ouvrir \texttt{open} le
-module qui fait office de pack pour utiliser les noms originaux. En revanche,
-cette solution a plusieurs défauts :
+des unités du pack en sous-module. Ainsi, il suffit d'ouvrir le module qui fait
+office de pack pour utiliser les noms originaux. En revanche, cette solution a
+plusieurs défauts :
 \begin{itemize}
 \item elle oblige à emporter \textbf{tous} les modules du pack, même si un seul
   est utilisé;
 \item il est impossible d'avoir du code d'initialisation dans ce module-pack,
   par exemple pour y inclure des fonctions ou opérateurs utiles pour tous les
-  modules du pack.
+  modules du pack (pour simuler le comportement de Pervasives par exemple).
 \end{itemize}
 En résumé, il n'y a aucun contrôle sur le contenu effectif du pack, il n'est
 possible que d'y ajouter des unités de compilation mais aucune autre opération
 n'est possible.
 
-Une autre solution adoptée par d'autres tels que Jane Street pour leur
-bibliothèque \emph{Core} ou les développeurs de la bibliothèque \emph{Batteries
-  Included} est d'utiliser un module d'alias. En d'autre termes, un module qui
-est une suite d'alias d'autres modules, permettant ainsi d'avoir l'avantage du
-pack mais sans le second inconvénient. En effet, puisque ce module est écrit par
-le développeur et non plus généré automatiquement par le compilateur, il est
-possible d'y inclure du code qui sera directement utilisable dès lors que ce
-``module namespace'' sera ouvert. En revanche, avant la version 4.02 d'OCaml,
-cette solution nécessitait tout de même de donner explicitement au compilateur
-tous les modules référencés dans ce dernier.
+Une solution adoptée par d'autres tels que Jane Street pour leur bibliothèque
+\emph{Core} ou les développeurs de la bibliothèque \emph{Batteries Included} est
+d'utiliser un module d'alias. En d'autre termes, un module qui est une suite
+d'alias d'autres modules, permettant ainsi d'avoir l'avantage du pack mais sans
+le second inconvénient. En effet, puisque ce module est écrit par le développeur
+et non plus généré automatiquement par le compilateur, il est possible d'y
+inclure du code qui sera directement utilisable dès lors que ce ``module
+namespace'' sera ouvert. En revanche, avant la version 4.02 d'OCaml, cette
+solution nécessitait tout de même de donner explicitement au compilateur tous
+les modules référencés dans ce dernier.
 
 La prochaine version du compilateur règle ce problème en rajoutant (entre
 autres) une notion de dépendances faibles (ou transparentes comme son auteur,
@@ -253,9 +501,10 @@ intuitive, et demande de mettre en place un schéma de compilation relativement
 compliqué. Un exemple simple serait le suivant:
 
 Supposons que l'on écrive deux modules \texttt{set.ml} et \texttt{map.ml}, et
-dont \texttt{Set} est dépendant de \texttt{Map}. On utilise un module
-\texttt{lib.ml} qui fait office de ``module namespace''. Le contenu des trois
-fichiers est le suivant:
+dont \texttt{Set} est dépendant de \texttt{Map} (on suppose naïvement ici qu'un
+set est un mapping de valeurs vers unit). On utilise un module \texttt{lib.ml}
+qui fait office de ``module namespace''. Le contenu des trois fichiers est le
+suivant:
 
 \begin{OCaml}
 (* map.ml *)
@@ -263,12 +512,12 @@ fichiers est le suivant:
 
 (* set.ml *)
 ...
-module UnitMap = Map.Make(
-  struct 
-    type t = unit 
-    let compare = compare 
-  end)
-..
+module Make (Arg) =
+struct
+  module TMap = Map.Make(Arg)
+  ...
+end
+...
 
 (* lib.ml *)
 module Map = Lib_map
@@ -315,31 +564,25 @@ puisque la problématique étudiée ici se concentre sur les unités de compilat
 uniquement. 
 
 
-L'intérêt n'est pas seulement de proposer un mécanisme de namespaces simple,
-mais également de trouver une solution aux \emph{big functors}, une version des
-packs qui permettent d'englober les modules sous un foncteur et ainsi obtenir
-un pack paramétrique, réutilisable avec des implémentations
-différentes. 
-
 \medskip
 
 Au final, la problèmatique de ce stage est d'imaginer et prototyper un mécanisme
 de \emph{namespaces} pour OCaml, dont l'utilisation soit simple et facilement
-compréhensible, mais qui en plus de ça ne demande pas un schéma de compilation
-particulier pour être efficace. De plus, l'idée est également de trouver une
+compréhensible, mais qui en plus de cela ne demande pas un schéma de compilation
+particulier pour être efficace. L'idée est également de trouver une
 solution pour les namespaces functorisés, qui permettrait de mettre en oeuvre
-des bibliothèques totalement génériques et instantiées par l'utilisateur.
+des bibliothèques totalement génériques et instanciées par l'utilisateur.
 
 Dans le cadre d'un système efficace de namespaces, plusieurs solutions ont été
-proposée et envisagées. Il faut savoir que ce sujet est étudié informellement
+proposées et envisagées. Il faut savoir que ce sujet est étudié informellement
 depuis déjà longtemps au sien de la communauté et plusieurs contributeurs ont
-proposé une solution. En revanche, les solutions étant souvent éloignées et les
-avis divergeants, aucun compromis n'a été établi vers une proposition qui
-pourrait satisfaire le plus de monde. Le but est ici de trouver ce compromis
-mais en proposant une solution concrète avec un prototype. L'intérêt est
-d'éviter de relancer une discussion sur la manière dont doit être ajoutée cette
-fonctionnalité, mais plutôt de discuter d'une solution effective et l'améliorer
-en fonction des avis reçus.
+proposé une solution. En revanche, celles-ci étant souvent éloignées et les avis
+divergeants, aucun compromis n'a été établi vers une proposition qui pourrait
+satisfaire le plus de monde. Le but est de trouver ce compromis en proposant une
+solution concrète avec un prototype. L'intérêt est d'éviter de relancer une
+discussion sur la manière dont doit être ajoutée cette fonctionnalité, mais
+plutôt de discuter d'une solution effective et l'améliorer en fonction des avis
+reçus.
 
 En ce sens, il peut être intéressant de voir les grands axes qui ont été étudiés
 pour des solutions à ces propositions et de quelle manière notre proposition
@@ -370,8 +613,9 @@ Une solution était également d'ajouter un nouveau type de fichier de descripti
 de namespaces, mais cette solution n'apportait finalement pas la simplicité
 désirée. Finalement, durant la synthèse des différente solution émergeait un
 concept important pour ces ensembles d'unité de compilation : un moyen de
-décrire l'environnement de compilation. Ce concept était également introduit
-dans la proposition de Didier Rémi et Gabriel Scherer.
+décrire l'environnement de compilation. Ce concept était introduit par Fabrice
+Le Fessant \cite{lefessant-prop} et repris dans la proposition de Didier Rémy et
+Gabriel Scherer \cite{remy-scherer-prop}.
 
 \section{Déclaration et implémentation de namespaces}
 
@@ -389,8 +633,8 @@ fichiers.
 
 Cette réflexion nous mène alors à la solution suivante :
 \begin{itemize}
-\item Un module = un fichier, donc un Namespace = un dossier \\
-  $\rightarrow$ le compilateur sait où trouver un module.
+\item Un module = un fichier, donc un Namespace = un dossier \\ $\rightarrow$ le
+  compilateur sait où trouver un module dans un namespace spécifique.
 \item Pas de manipulation explicite des namespaces dans le coeur du langage pour
   éviter des possibles changements de sémantique \\
   $\rightarrow$ La déclaration des namespaces et l'import des unités de
@@ -399,29 +643,29 @@ Cette réflexion nous mène alors à la solution suivante :
 \end{itemize}
 
 De cette manière, le coeur du langage ne subit aucune modification, et de plus,
-cela permet d'harmoniser la manière dont sont installés les bibliothèques, ou du
+cela permet d'harmoniser la manière dont sont installées les bibliothèques, ou du
 moins propose une organisation standard et permet de réduire le besoin d'outils
 externes pour trouver un module (\emph{ocamlfind} par exemple). La syntaxe de
 l'en-tête est présentée en annexe \ref{header-bnf}.
 
 
-Dans cette syntaxe, il faut noter que l'en-tête est séparé en deux partie
+Dans cette syntaxe, il faut noter que l'en-tête est séparé en deux parties
 distinctes. Tout d'abord, on remarque que le namespace auquel appartient l'unité
 de compilation est déclaré explicitement, par exemple:
 \begin{OCaml}
 in namespace MyNamespace
 \end{OCaml}
- Cela permet au compilateur de
-récupérer de manière automatique tous les modules susceptibles d'appartenir au
-même namespace. De plus, déclarer de manière explicite au compilateur lui permet
-de générer le fichier dans le bon dossier. La déclaration d'un namespace n'est
-en revanche pas obligatoire.
+Cela permet au compilateur de récupérer de manière automatique tous les modules
+susceptibles d'appartenir au même namespace. De plus, déclarer de manière
+explicite permet au compilateur de générer le fichier dans le bon dossier. La
+déclaration d'un namespace n'est en revanche pas obligatoire et permet à
+n'importe quel programme écrit sans namespace d'être compatible.
 
 La seconde partie est la plus intéressante et montre les possibilités de
 déclaration de l'environnement de compilation. La déclaration des imports est
 lue séquenciellement. Chaque ligne déclare l'ensemble des modules à importer
 depuis l'environnement donné. Cet ensemble est déclaré par l'utilisateur, ce qui
-lui permet de raffiner ses choix à la manière de Scala:
+lui permet de raffiner ses choix à la manière de Scala :
 \begin{itemize}
 \item En important module par module;
 \begin{OCaml}
@@ -455,19 +699,19 @@ l'édition des liens, mais aussi de modifier les symboles pour y introduire cett
 information et donc permettre une différenciation.
 
 Cette solution répond aux problèmes posés par les packs et les modules d'alias :
-seuls les modules utilisés sont réellement nécessaires, mais également un
-namespace est totalement extensible. En effet, rien n'empêche un autre
-utilisateur d'utiliser le même namespace pour y redéfinir certains modules ou en
-ajouter.
+seuls les modules utilisés sont réellement nécessaires, et de plus un namespace
+est totalement extensible. En effet, rien n'empêche un autre utilisateur
+d'utiliser le même namespace pour y redéfinir certains modules ou en ajouter.
 
-Finalement, il reste une dernière fonctionnalité manquante par rapport aux 
-modules d'alias (ou ``modules namespace'') : la possibilité d'avoir du code 
-accessible de base pour tous les modules. Ce qui a été décidé ici est donc de
-donner une sémantique particulière aux unités de compilation ayant pour nom
-\emph{Pervasives}. Ainsi, chaque fois qu'un namespace est utilisé et qu'il
-contient un module Pervasives, celui-ci est automatiquement ouvert (sauf s'il
-est aliasé ou masqué dans les contraintes). De plus, chaque module d'un
-namespace ouvre implicitement ce module.
+\paragraph{Modules ouverts automatiquement}
+
+Une fonctionnalité manquante par rapport aux modules d'alias (ou ``modules
+namespace'') est la possibilité d'avoir du code accessible de base pour tous les
+modules. Ce qui a été décidé ici est donc de donner une sémantique particulière
+aux unités de compilation ayant pour nom \emph{Pervasives}. Ainsi, chaque fois
+qu'un namespace est utilisé et qu'il contient un module Pervasives, celui-ci est
+automatiquement ouvert (sauf s'il est aliasé ou masqué dans les contraintes). De
+plus, chaque module d'un namespace ouvre implicitement ce module.
 
 \paragraph{Système de fichiers et namespaces}
 
@@ -479,27 +723,29 @@ forcément un namespace. Par exemple, si le compilateur doit chercher le module
 si celui-ci n'est pas explicitement dans le namespace \texttt{Ns} alors il ne
 s'agit pas du module recherché. En effet, les symboles générés sont dépendants
 du namespace, il est donc impossible d'utiliser n'importe quelle unité pourvu
-qu'elle soit dans le dossier qui pourrait correspondre. De plus, comme dans la
-sémantique actuelle du compilateur, l'ordre de \texttt{-I <dossier>} est
-important. Pour rappel, cette option permet de rajouter des chemins où le
-compilateur peut rechercher les unités de compilation. Actuellement, si le
-compilateur cherche un fichier \texttt{a.cmi}, il prendra celui qui se trouve
-dans le premier dossier dans l'ordre des \texttt{-I}, en commençant par la
-racine. Pour les namespaces, l'ordre dans lesquel sont recherchés les modules
-dans les sous-dossiers est le même.
+qu'elle soit dans le dossier qui pourrait correspondre. 
+
+%% De plus, comme dans la sémantique actuelle du compilateur, l'ordre de \texttt{-I
+%%   <dossier>} est important. Pour rappel, cette option permet de rajouter des
+%% chemins où le compilateur peut rechercher les unités de
+%% compilation. Actuellement, si le compilateur cherche un fichier \texttt{a.cmi},
+%% il prendra celui qui se trouve dans le premier dossier dans l'ordre des
+%% \texttt{-I}, en commençant par la racine. Pour les namespaces, l'ordre dans
+%% lesquel sont recherchés les modules dans les sous-dossiers est le même.
 
 \paragraph{Calcul des dépendances}
 
 Un trait intéressant qu'apportent l'introduction de namespaces est qu'il est
 possible syntaxiquement de calculer des dépendances. En effet, les modules sont
 importés explicitement, par conséquent il est beaucoup plus facile de savoir de
-quels modules le fichier actuel dépend. La seule inconnue reste le cas où
-l'import se fait à l'aide de \texttt{_} : à ce moment là, lorsque la provenance
-d'un module ne peut pas être inférée depuis les imports, il est possible de
-regarder dans les dossiers qui correspondent aux namespaces dont tous les
-modules ont été importés. Il est également possible de lire les premiers tokens
-des fichiers dont le nom correspond pour vérifier que le namespace déclaré
-correspond à l'un de ceux utilisés.
+quels modules le fichier actuel dépend et surtout, si le module référencé est un
+sous-module venant d'un ``open'' ou un ``include'' ou non. La seule inconnue
+reste le cas où l'import se fait à l'aide de \texttt{_} : à ce moment là,
+lorsque la provenance d'un module ne peut pas être inférée depuis les imports,
+il est possible de regarder dans les dossiers qui correspondent aux namespaces
+dont tous les modules ont été importés. Il est également possible de lire les
+premiers tokens des fichiers dont le nom correspond pour vérifier que le
+namespace déclaré correspond à l'un de ceux utilisés.
 
 \paragraph{Recherche d'unités de compilation}
 
@@ -658,8 +904,8 @@ par conséquent ils ne pourront cohabiter dans un même programme : la solution
 sera d'utiliser un namespace pour les différencier. Ainsi, plusieurs solutions
 sont possibles :
 \begin{enumerate}
-\item Donner le namespace de la version appliquée avec un -ns
-\item Inférer le namespace à partir des arguments donnés pour l'application, ce
+\item Donner le namespace de la version appliquée avec une option ``-ns''
+\item utiliser le namespace des arguments donnés pour l'application, ce
   qui restreint à ce que tous les arguments appartiennent au même namespace et
   qu'il soit différent de celui de la \emph{functor unit}.  
 \end{enumerate}
@@ -684,10 +930,12 @@ let to_string (s : t) = s
 
 Généralement, un module ne sera pas directement applicable, ou bien c'est qu'il
 a été écrit dans l'optique de convenir à cette signature précise (ou qu'il
-s'agit d'une signature standard). De ce fait, la plupart du temps il sera
-nécessaire d'écrire un module avec une signature compatible, et par conséquent
-le déclarer (ou non) dans un namespace. Au final, cette solution a été retenue
-dans le prototype actuelle, mais pourrait être changée sans problème.
+s'agit d'une signature relativement standard, comme \texttt{OrderedType} utilisé
+notamment par Map et Set de la bibliothèque standard). De ce fait, la plupart du
+temps il sera nécessaire d'écrire un module avec une signature compatible, et
+par conséquent le déclarer (ou non) dans un namespace. Au final, cette solution
+a été retenue dans le prototype actuel, mais pourrait être changée sans
+problème.
 
 \medskip
 
@@ -730,7 +978,7 @@ Mais cette représentation n'est pas efficace, pour plusieurs raisons :
   \texttt{-apply} et une seconde fois dans \texttt{List}.
 \item Puisqu'il s'agira de deux instances différentes, elles ne partageront pas
   leurs références et le code d'initialisation sera répété deux fois ce qui
-  pourrait avoir des conséquences dramatiques., malgré qu'elles soient
+  pourrait avoir des conséquences dramatiques, malgré qu'elles soient
   ``identiques'' du point de vue du système de types.
 \end{itemize}
 Par conséquent, il faut que \texttt{List} soit capable d'utiliser une version
@@ -747,11 +995,11 @@ système de type, mais donne l'idée générale du type de l'argument : il s'agi
 d'un module qui est l'application de Mod sur Sign. Ainsi la gestion des
 dépendances se fait de la manière suivante :
 \begin{itemize}
-\item Une functor unit peut dépendre d'autres functor units si leurs arguments
-  sont les mêmes, et donc dépendre d'une functor unit implique d'être aussi
-  functorisé. Une functor unit peut évidemment avoir une dépendance qui elle
-  même n'est pas functorisée puisqu'il n'y a pas de soucis d'instanciation
-  multiple.
+\item Une functor unit peut dépendre d'autres functor units dans son namespace
+  si leurs arguments sont les mêmes, et donc dépendre d'une functor unit
+  implique d'être aussi functorisé. Une functor unit peut évidemment avoir une
+  dépendance qui elle même n'est pas functorisée puisqu'il n'y a pas de soucis
+  d'instanciation multiple.
 \item L'application d'une functor unit n'est possible que s'il existe une
   version appliquée de ses dépendances (puisqu'il s'agit de ses arguments
   de foncteur).
@@ -759,18 +1007,19 @@ dépendances se fait de la manière suivante :
 
 Finalement, cette solution permet d'avoir un ensemble de modules functorisés sur
 les mêmes arguments, et dont les dépendances sont gérées par le compilateur pour
-éviter de multiples instanciations. Néanmoins, cette solution au contraire des
-namespaces ``simples'' est entièrement du côté du système de \emph{build}. De
-plus, il n'est pas possible de currifier les foncteurs en l'état actuel, bien
-que cela serait possible. Par conséquent, il pourrait également être intéressant
-de lever la restriction sur les dépendances : une functor unit peut être
-dépendantes d'autres à partir du moment où leurs arguments sont un sous-ensemble
-des siens.
+éviter de multiples instanciations. Cependant cette solution nécessite de mettre
+en place un système de build pour réaliser ces instanciations de manière
+efficace. De plus, il n'est pas possible de currifier les foncteurs en l'état
+actuel, bien que cela serait possible. Par conséquent, il pourrait également
+être intéressant de lever la restriction sur les dépendances : une functor unit
+peut être dépendantes d'autres à partir du moment où leurs arguments sont un
+sous-ensemble des siens.
 
 \medskip
 
-Un prototype est disponible à l'adresse suivante, et avec un
-jeu de test et d'exemples.
+Un prototype est disponible à l'adresse suivante
+(\texttt{github.com/pcouderc/ocaml_namespace}, et avec un jeu de test et
+d'exemples.
 
 \chapter{Contexte de travail et analyse}
 
@@ -823,7 +1072,7 @@ version actuelle :
   l'environnement.
 \end{enumerate}
 Le deux premières solutions étaient les plus simples à mettre en place : le
-typeur so'ccupait de rajouter toutes les informations dans l'environnement et de
+typeur s'occupait de rajouter toutes les informations dans l'environnement et de
 générer les bons identifiants et chemins. La seconde notamment aurait pu
 permettre plus d'expressivité, mais aurait posé problème lors de l'importation
 de tous les modules d'un namespace, puisqu'il est difficile de savoir quels sont
@@ -838,7 +1087,7 @@ manipuler les namespaces comme des modules, et il serait intéressant de voir
 dans quelle mesure il serait possible d'améliorer leur utilisation. Par exemple,
 on pourrait introduire un nouveau \emph{kind} pour ces structures, qui
 permettrait alors de les différencier et introduire de nouveaux comportements à
-l'utilisation (par exemple des restrictions particulières). 
+l'utilisation (par exemple des restrictions particulières).
 
 \section{Réflexions sur la solution finale}
 
@@ -854,13 +1103,13 @@ efficacement les dépendances pour \emph{ocamldep} par exemple : l'outil est don
 capable de donner de meilleures dépendances puisqu'il sait où se trouve chacun
 des modules donné dans l'en-tête, et peut se permettre de lire les premiers
 tokens des possibles dépendances pour vérifier qu'ils appartiennent au namespace
-recherché. De plus, cette solution résoud un problème rencontré lors de
+recherché. De plus, cette solution résout un problème rencontré lors de
 l'utilisation de packs de modules ou de modules d'alias : si l'un des modules
 aliasé ou packagé est modifié, alors le module d'alias (ou le pack) doit être
-recompilé, et ainsi chacun des modules dont il dépend doit également être
+recompilé, et ainsi chacun des modules qui en dépend doit également être
 recompilé. Ce goulot d'étranglement peut être évité depuis la 4.02 grâce à la
-technique décrite précédemment puisque le module d'alias peut être compilé
-avant ceux qu'il référence et donc ne pas avoir de dépendances vers ces
+technique décrite précédemment puisque le module d'alias peut être compilé avant
+ceux qu'il référence et donc ne pas avoir de dépendances vers ces
 derniers. Néanmoins, cette technique est loin d'être standard et
 intuitive. L'intégration de namespaces, qui sont ni plus ni moins que des noms
 longs, permet d'éviter ces recompilations inutiles.
@@ -880,13 +1129,14 @@ peut-être dangereux car celui-ci peut être utilisé comme nom de variable dans
 l'un de ces programmes et par conséquent n'être plus compilable. Bien
 évidemment, modifier le nom d'une variable n'est pas vraiment un problème, mais
 cela est à prendre en considération, et explique pourquoi ce choix de mot-clés
-qui sont déjà utilisés dans le langage.
+qui sont déjà utilisés dans le langage \footnote{\emph{import} est notamment un
+  nom de variable utilisé à plusieurs reprise dans le compilateur.}.
 
 Leur intérêt se situe particulièrement sur la manière dont peuvent être décrites
 les bibliothèques, comment celles-ci sont installées et l'espoir de
 standardisation dans l'organisation des bibliothèques du langage. En effet,
 cette solution pourrait permettre de ne plus être obligé d'utiliser des outils
-tel \emph{ocamlfind} pour des programmes très simples : le compilateur sait
+tel que \emph{ocamlfind} pour des programmes très simples : le compilateur sait
 exactement quels modules utiliser si une option comme \texttt{-lib} proposée
 précédemment était implémentée. En revanche, le compilateur ne peut créer
 lui-même les dossiers correspondant aux namespaces sur le système de fichiers :
