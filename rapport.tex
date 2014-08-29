@@ -1213,8 +1213,9 @@ La proposition de namespaces actuelles permet par exemple de définir de manièr
 simple une bibliothèque : en effet, l'utilisation de namespaces permet de ranger
 des modules sous un même nom et est ainsi un moyen naturel de décrire, installer
 et utiliser des bibliothèques. De plus, ces namespaces étant hiérarchiques, il
-est possible de définir des sous-namespaces pour spécifier des comportement dans
-une bibliothèque.
+est possible de définir des sous-namespaces pour spécifier des comportements dans
+une bibliothèque (une organisation où chaque sous-namespace répond à un besoin
+spécifique de la bibliothèque).
 
 Par exemple, une implémentation pour la bibliothèque standard pourrait être la
 suivante (on ne prendra que quelques exemples) :
@@ -1392,7 +1393,7 @@ ocamlc -c -functor cohttp/asyncMonad.cmi cohttp/protocol.ml
 
 Dans cet exemple, le module Protocol ne fait jamais explicitement référence à
 AsyncMonad, néanmoins pour pouvoir utiliser RequestHandler il doit être
-functorizé sur les mêmes arguments que lui.
+functorisé sur les mêmes arguments que lui.
 
 On souhaite ensuite instancier une version de la bibliothèque sur Lwt. On crée
 donc un nouveau namespace Cohttp.Lwt, et un fichier qui bind le module Lwt dans
@@ -1529,7 +1530,7 @@ mais en apportant cette fois une solution concrète et non seulement des
 idées. L'espoir est donc de faire converger la communauté vers une solution
 définitive. Le prototype permet notamment aux différents acteurs de se faire une
 idée sur notre proposition. Cette proposition sera d'ailleurs présentée durant
-l'ICFP 2014, à l'OCaml Users and Developpers Workshop le 6 septembre.
+l'ICFP 2014, à l'OCaml Users and Developpers Workshop le 5 septembre.
 
 Par la suite, il est évident que si cette solution plait il deviendra nécessaire
 de continuer à travailler sur ce prototype, que ce soit en terme de nettoyage du
