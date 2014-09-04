@@ -123,6 +123,13 @@ d'OCamlPro avec qui j'ai eu la chance de travailler, discuter, rigoler, etc, et
 avec qui j'espère l'entente et la collaboration continuera durant les trois
 années à venir.
 
+Il n'y a pas que ce stage qui compte, et sans mes chers collègues APR l'année
+qui s'est déroulée n'aurait pas été ce qu'elle a été. Merci à Pierre, I\~nigo,
+Roven, Vincent, Matthieu et Mathieu, mais également à Emmanuel Chailloux et
+Frédéric Peschanski \footnote{Malgré Haskell...} qui auront su nous acceuillir,
+nous encadrer tout au long de l'année, et évidemment pour leur pédagogie si
+particulière.
+
 J'aimerai tout de même remercier une nouvelle fois Fabrice et Didier, le premier
 pour m'acceuillir au sein d'OCamlPro pour les trois prochaines années pour
 travailler sur ma thèse, et dont le sujet est l'idée du second protagoniste. Et
@@ -711,9 +718,25 @@ Cet en-tête n'existe plus à partir de la phase de typage, et se fait en deux
 temps : l'ensemble des modules à rajouter à l'environnement est calculée et le
 résultat ajouté à l'environnement. Il ne change rien à la chaîne de compilation,
 si ce n'est d'utiliser des informations de namespaces lors de la recherche de
-modules dans l'environnement.
+modules dans l'environnement. Cet en-tête ajoute chaque nom (ou alias) dans
+l'environnement, ainsi chaque module importé est directement utilisable. Par
+conséquent, dans ce cas précis :
+\begin{OCaml}
+with Stdlib.List
+and Core.List
 
-Cependant, cet en-tête n'est suffisant pour gérer l'utilisation de modules de
+open List
+\end{OCaml}
+le module effectivement ouvert sera le second importé. Un \emph{warning} est
+ajouté au compilateur pour prévenir ce genre de cas. Il ne gère cependant que
+les noms importés depuis les namespaces. Par exemple, si on importait seulement
+le module List de Core, on ne pourrait plus utiliser un autre module List qui ne
+serait pas dans un namespace mais le compilateur ne pourrait pas le découvrir
+(ou alors il serait nécessaire de calculer son univers de compilation avant
+toute phase de typage).
+
+
+Cependant, cet en-tête n'est pas suffisant pour gérer l'utilisation de modules de
 même nom : il est donc nécessaire d'ajouter cette information dans l'unité de
 compilation elle-même pour pouvoir l'utiliser comme discriminant lors de
 l'édition des liens, mais aussi de modifier les symboles pour y introduire cette
@@ -1223,6 +1246,12 @@ compilation.
 En vérité, l'analyse de la solution apportée s'est faite dans le chapitre
 précédent pour permettre de comprendre les choix qui ont été faits pour
 l'implémentation et les restrictions apportées aux functor units.
+
+En revanche, la solution présentée ici est véritablement expérimentale et vouée
+à changer. Il serait intéressant de l'étendre à plusieurs namespaces, avoir
+peut-être une syntaxe dans le langage mais également de revoir certaines
+restrictions (qui sont finalement des détails d'implémentation, bien qu'ils
+soient chaque fois justifiés) pour permettre plus de flexibilité.
 
 \chapter{Exemples et cas d'utilisation}
 

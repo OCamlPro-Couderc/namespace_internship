@@ -104,7 +104,7 @@ What now?
 \only<2->{
 \begin{itemize}
 \item<3-> LibA (Misc, Map, ...)
-\item<4-> $\rightarrow$ LibA (\alert{LibA}\_misc, \alert{LibB}\_map, ...)
+\item<4-> $\rightarrow$ LibA (\alert{LibA}\_misc, \alert{LibA}\_map, ...)
 \end{itemize}
 
 \bigskip
@@ -179,11 +179,66 @@ Cons:
 
 \exalias
 
+compiled with \textbf{-no-alias-deps}
 \end{itemize}
 
 }
 
-To complete...
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using advantages of aliases}
+
+\defverbatim[colored]{\exalias}{
+\begin{OCaml}
+(* libA_misc.ml *)
+open LibA
+...
+\end{OCaml}
+
+\begin{OCaml}
+(* libA_map.ml *)
+open LibA
+
+open Misc
+...
+\end{OCaml}}
+
+\bigskip
+
+\only<2-3>{
+Developper POV: using short names
+
+\exalias
+}
+
+\only<3-3>{
+\bigskip
+
+$\rightarrow$ False circularity
+}
+
+\defverbatim[colored]{\exaliasbis}{
+\begin{OCaml}
+(* map.ml *)
+open Misc
+...
+\end{OCaml}
+}
+
+\only<4-5>{
+\begin{itemize}
+\item<4-> Deceive ocamldep for better dependencies 
+
+\exaliasbis
+
+\item<5> + Namespace used transparently
+
+$\rightarrow$
+
+\textbf{ocamlc -c -o libA_map.cmo -open LibA map.ml}
+\end{itemize}
+}
 
 \end{frame}
 
