@@ -1,0 +1,569 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{syntax}
+\usepackage{cite}
+\usepackage{color}
+
+\newsavebox{\simpleimport}
+
+\setbeamercovered{transparent}
+
+\author{Pierrick COUDERC (INRIA), Fabrice LE FESSANT (INRIA \& OCamlPro), 
+  Benjamin CANOU (OCamlPro), Pierre CHAMBART (OCamlPro)}
+
+\title{A Proposal for Non-intrusive Namespaces\\
+  \medskip
+  OCaml 2014}
+
+\date{September 5, 2014}
+
+%% \setlength{\grammarindent}{8em} % increase separation between LHS/RHS 
+
+\lstnewenvironment{OCaml}
+                  {\lstset{
+                      language=[Objective]Caml,
+                      breaklines=true,
+                      %% commentstyle=\color{purple},
+                      stringstyle=\color{red},
+                      identifierstyle=\ttfamily,
+                      keywordstyle=\color{blue},
+                      basicstyle=\footnotesize\tt,
+                      otherkeywords={namespace, abstract}
+                    }
+                  }
+                  {}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}
+\frametitle{Problem: using modules of same name}
+
+\only<1-2>{
+\begin{itemize}
+\item LibA (Misc, Map, AnotherModule, ...) 
+\item My program (Misc, Env, ...)
+\end{itemize}
+
+\bigskip
+
+}
+
+\only<2>{
+\textbf{ocamlc} : \emph{``Hey, you use Misc but this is not the correct signature!''}
+}
+
+\only<3>{
+\begin{itemize}
+\item LibA (\alert{Misc}, Map, ...) 
+\item My program (\alert{Misc}, Env, ...)
+\end{itemize}
+}
+
+\only<4-6>{
+\begin{itemize}
+\item LibA (Misc, Map, ...) 
+\item My program (\alert{My}Misc, Env, ...)
+\end{itemize}
+
+\bigskip
+}
+
+\only<5-6>{
+
+\textbf{ocamlc} : \emph{``Hey, you use Map in Env but AnotherModule also use Map, and they're
+not the same!''}
+
+\bigskip
+}
+
+\only<6>{
+$\rightarrow$ stdlib/Map no longer usable
+}
+
+\only<7-9>{
+What now?
+\begin{itemize}
+\item<7-> Ask LibA dev to rename Map?
+\item<8-> Copy stdlib/map.ml sources?
+\item<9-9> Abandon stdlib?
+\end{itemize}
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Before 4.02: developpers' trick \#1}
+
+\emph{Using convention: long names}
+
+\bigskip
+
+\only<2->{
+\begin{itemize}
+\item<3-> LibA (Misc, Map, ...)
+\item<4-> $\rightarrow$ LibA (\alert{LibA}\_misc, \alert{LibB}\_map, ...)
+\end{itemize}
+
+\bigskip
+}
+
+\only<5>{
+Long names can be quite long...
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Before 4.02: developpers' trick \#2}
+
+\emph{Packs}
+
+\bigskip
+
+\only<2-4>{
+\begin{itemize}
+\item<3-4> LibA (Misc, Map, ...)
+\item<4-4> $\rightarrow$ LibA = a \alert{unique module} LibA
+  
+  with \alert{submodules}: (Misc, Map, ...)
+\end{itemize}
+
+\bigskip
+}
+
+\only<5->{
+Pros:
+\begin{itemize}
+\item<5->\textbf{Developper}: Simply changes the compilation toolchain;
+\item<6->\textbf{User}: 
+  \begin{itemize}
+  \item Use path to distinguish modules
+  \item Use the module as any other module
+  \end{itemize}
+\end{itemize}
+\medskip
+}
+
+\only<7->{
+Cons:
+\begin{itemize}
+\item<7-> Too much recompilations
+\item<8-> Dependencies
+\item<9-> Binaries size
+\end{itemize}
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Since 4.02: developpers' trick \#3}
+
+\defverbatim[colored]{\exalias}{
+\begin{OCaml}
+  (* libA.ml *)
+  module Misc = LibA_misc
+  module Map = LibA_map
+  ...
+\end{OCaml}
+}
+
+\emph{Module aliases}
+
+\only<2->{
+\begin{itemize}
+\item<3-> LibA (Misc, Map, ...)
+\item<4-> $\rightarrow$ LibA = (LibA\_misc, LibA\_map, ...) \alert{+ LibA}
+
+\exalias
+
+\end{itemize}
+
+}
+
+To complete...
+
+\end{frame}
+
+\begin{frame}
+Our solution: \emph{namespaces}.
+
+\bigskip
+
+Principle:
+\begin{itemize}[<+->]
+\item A module belongs to a namespace
+\item Modules in namespaces are imported explicitely
+\end{itemize}
+
+\bigskip
+
+\only<3>{
+  To compare with Java or Scala's packages.
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Writing LibA with namespaces}
+
+What happens to LibA?
+
+\pause
+
+\begin{columns}%% [t]{5cm}
+  \column{0.6\textwidth}
+    \begin{OCaml}
+      (* misc.ml *)
+      in namespace LibA
+      ...
+    \end{OCaml}
+
+  \column{0.6\textwidth}
+    \begin{OCaml}
+      (* map.ml *)
+      in namespace LibA
+      ...
+    \end{OCaml}
+\end{columns}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using our library}
+
+\only<1>{
+How to use those modules in my program?
+}
+
+\defverbatim[colored]{\simpleimport}{
+\begin{OCaml}
+with LibA.(Misc, Map)
+
+open Misc (* from LibA *)
+let empty = Map.empty
+...
+let _ = ... 
+  Misc.pprint 42 (* function only in my own Misc *)
+\end{OCaml}}
+
+\only<2-3>{\simpleimport \bigskip}
+
+\only<3>{
+\textbf{ocamlc}: \emph{``Hey, you use Misc but this is not the correct
+  signature: value pprint does not exists!''}}
+
+\defverbatim[colored]{\aliasedimport}{
+\begin{OCaml}
+with LibA.(Misc as Misc2, Map)
+
+open Misc2
+let empty = Map.empty
+...
+let _ = ... 
+  Misc.pprint 42
+\end{OCaml}}
+
+\only<4->{
+  We need Misc and ``Misc from LibA'' at the same time:
+  
+  \bigskip
+
+  \aliasedimport
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using all modules}
+
+We need all the modules.
+
+\bigskip
+
+\defverbatim[colored]{\wildcard}{
+\begin{OCaml}
+with LibA._
+
+open Misc (* from LibA *)
+...
+\end{OCaml}}
+
+\only<2-3>{
+  \wildcard
+
+\bigskip
+
+Not recommended: it shadows existing names
+
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using almost all the modules}
+
+We need all the modules, except this one.
+
+\bigskip
+
+\defverbatim[colored]\wildcardcstr{
+\begin{OCaml}
+with LibA.(Misc as _, _)
+...
+open Misc (* not the Misc from LibA *)
+\end{OCaml}
+}
+
+
+\only<2-3>{\wildcardcstr
+
+\bigskip
+
+\begin{itemize}
+\item<3-3> Misc is not imported from LibA (no dependency)
+\item<3-3> Still not recommended.
+\end{itemize}}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Naming conflict}
+
+If I imports two modules with same name name?
+
+\bigskip
+
+\defverbatim[colored]\warning{
+\begin{OCaml}
+with Stdlib._
+and LibA._
+...
+\end{OCaml}
+}
+
+\only<2-3>{
+\warning
+\bigskip}
+
+\only<3>{
+\textbf{ocamlc}: \emph{``The module Map from LibA will shadow one previously imported''}
+
+\bigskip
+
+Works only with modules imported from namespaces
+}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Extensibility}
+Namespaces are not closed.
+
+\bigskip
+
+\defverbatim[colored]{\extens}{
+\begin{OCaml}
+in namespace LibA
+...
+\end{OCaml}
+}
+
+\only<2>{\extens
+\bigskip
+Adding a module in a namespace \emph{a posteriori} is possible}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Extending Pervasives to namespaces}
+
+\only<1-2>{
+Pervasives: automatically opened.
+}
+
+\defverbatim[colored]{\pervasives}{
+\begin{OCaml}
+with Stdlib.List
+...
+let empty = [] (* from Stdlib.Pervasives *)
+\end{OCaml}}
+
+\only<2>{
+\pervasives
+
+\bigskip
+
+$\rightarrow$ Pervasives modules automatically opened when using their namespace.
+}
+
+\defverbatim[colored]{\palias}{
+\begin{OCaml}
+in namespace Stdlib.(Pervasives as P)
+\end{OCaml}
+}
+
+\defverbatim[colored]{\pshadow}{
+\begin{OCaml}
+in namespace Stdlib.(Pervasives as _)
+\end{OCaml}
+}
+
+\only<3-4>{
+Preventing auto-opens: 
+\bigskip
+\begin{itemize}
+\item<3-> By renaming:
+\palias
+\item<4-> And shadowing:
+\pshadow
+\end{itemize}
+}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Using hierarchies organization}
+Namespaces: natural way to organize modules.
+
+\medskip
+\pause
+
+Stdlib could be organized and used like this:
+\begin{OCaml}
+with Stdlib.Internals.CamlinternalFormats
+and Stdlib.Unsafe.Obj
+...
+\end{OCaml}
+\end{frame}
+
+\begin{frame}
+\frametitle{Mapping namespaces and filesystem}
+
+Technically: a namespace $\Rightarrow$ a directory
+
+\medskip
+
+\pause
+
+\begin{itemize}[<+->]
+\item Logical: distinguish compilation units of the same name
+\item Practical: automatic organization
+\item In the future: would allow simpler compilation (-make)
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{ocamldep and namespaces}
+
+Namespace declaration and imports $\equiv$ header
+
+\bigskip
+
+Dependencies computed easier: each import \textbf{obviously is} a file.
+
+\bigskip
+
+With a large adoption and use of namespace: 
+
+$\rightarrow$ ocamldep only needs to read the header.
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Formal and technical aspect}
+
+Namespaces, especially imports:
+
+ $\rightarrow$ Description of the compilation environnement
+
+\bigskip
+
+Compiler-side: not too invasive
+\begin{itemize}[<+->]
+\item Symbols extended to contain the namespace
+\item Env extended to use and propagate namespaces
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Comparing our proposal with module aliases}
+\begin{itemize}[<+->]
+\item \textcolor{blue}{\textbf{+}} Extensibility
+\item \textcolor{blue}{\textbf{+}} Simple build sytem
+\item \textcolor{blue}{\textbf{+}} Expressivity
+\item \textcolor{red}{\textbf{-}} New syntax $\rightarrow$ code not compatible with old compilers
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Works in progress: coercion to module}
+
+Transforming the header into modules.
+
+\begin{OCaml}
+with LibA.(Misc, Map)
+and Stdlib.(List, String, Map)
+\end{OCaml}
+
+$$\Rightarrow$$
+
+\pause
+
+\begin{OCaml}
+module LibA = struct
+  module Misc = ...
+  module Map = ...
+end
+module Stdlib = struct
+  module List = ...
+  module String = ...
+  module Map = ...
+end
+\end{OCaml}
+
+%% \pause
+
+%% \begin{itemize}
+%% \item Full path for modules
+%% \item Namespaces as first-order modules
+%% \item Namespaces as functor arguments
+%% \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+\frametitle{Work in progress: big functors}
+
+Primary idea: using packs to generate functors (Fabrice Le Fessant, for OCaml 3.12)
+
+\bigskip
+
+Example: Cohttp $\rightarrow$ uses functors massively to use Lwt and Async.
+
+\bigskip
+
+$\Rightarrow$ Generating automatically functors and applications on entire
+namespaces.
+
+\medskip
+
+Highly experimental, design choices to do and change.
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Conclusion}
+
+\begin{itemize}
+\item Mechanism of namespaces integrated in the language
+\item Solves compilation issues, can help tools for dependencies
+\item Working prototype on 4.02:
+
+\texttt{github.com/pcouderc/ocaml_namespaces}
+\end{itemize}
+
+\end{frame}
+
+\end{document}

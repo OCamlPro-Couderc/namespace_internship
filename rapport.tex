@@ -106,7 +106,28 @@
 
 \section*{Remerciements}
 
-!!!TODO!!!
+J'aimerai bien sûr remercier Fabrice Le Fessant pour m'avoir proposé ce stage,
+pour son encadrements et ses nombreuses idées.
+
+Evidemment, j'aimerai remercier l'Inria pour m'avoir acceuilli au sein de
+l'IRILL, à Didier Rémy et Gabriel Scherer pour m'avoir acceuilli dans leur
+bureau et avec qui j'ai pu discuter et partager nos points de vue sur le
+sujet. Egalement à l'équipe de l'IRILL, notamment Roberto Di Cosmo, Vincent
+Balat et Jérôme Vouillon pour m'avoir acceuilli.
+
+Je n'oublie bien sûr évidement pas tous les stagiaires de l'IRILL, notamment
+Romain, Enguerrand, Ali, Julien, Béatrice et surtout Rémy qui deux fois par
+semaine quittait le confort du LIP6 pour venir partager notre bureau et par
+conséquent faire chuter notre productivité. Finalement, je remercie l'équipe
+d'OCamlPro avec qui j'ai eu la chance de travailler, discuter, rigoler, etc, et
+avec qui j'espère l'entente et la collaboration continuera durant les trois
+années à venir.
+
+J'aimerai tout de même remercier une nouvelle fois Fabrice et Didier, le premier
+pour m'acceuillir au sein d'OCamlPro pour les trois prochaines années pour
+travailler sur ma thèse, et dont le sujet est l'idée du second protagoniste. Et
+d'avance, je remercie Michel Mauny et Jacques Garrigue d'avoir accepté
+d'encadrer ce travail de recherche, avec Grégoire Henry au sein d'OCamlPro.
 
 
 \begin{abstract}
@@ -115,7 +136,7 @@ toujours avec la même utilité : distinguer des noms par un mécanisme de
 ``provenance'', sans quoi ceux-ci auraient pu entrer en conflit. Par exemple,
 les namespaces de C++ permettent de distinguer des valeurs, des fonctions ou
 des classes, et les packages de Java ou Scala de distinguer et d'organiser des
-classes.  Le sujet des namespaces est récurrent au sein de la communauté OCaml,
+classes. Le sujet des namespaces est récurrent au sein de la communauté OCaml,
 sans toutefois avoir réussi à en dégager une véritable solution. La notion
 d'espaces de noms existe déjà dans le langage grâce notamment au système très
 efficace de modules, mais trouve ses limitations au moment du passage à
@@ -1138,21 +1159,21 @@ standardisation dans l'organisation des bibliothèques du langage. En effet,
 cette solution pourrait permettre de ne plus être obligé d'utiliser des outils
 tel que \emph{ocamlfind} pour des programmes très simples : le compilateur sait
 exactement quels modules utiliser si une option comme \texttt{-lib} proposée
-précédemment était implémentée. En revanche, le compilateur ne peut créer
-lui-même les dossiers correspondant aux namespaces sur le système de fichiers :
-cela entrainerait une dépendance vers le module \emph{Unix} et donc entamerait
-la portabilité du compilateur, celle-ci étant déjà précaire. Néanmoins, ce
-défaut n'en est pas vraiment un :
-\begin{itemize}
-\item Un utilisateur n'utilisera pas de namespaces pour des programmes simples,
-  leur utilité est vraiment de dissocier des ensembles de modules.
-\item Il est possible de retrouver deux modules avec le même nom dans deux
-  namespaces différents et de les utiliser conjointement. Le seul moyen d'avoir
-  les deux fichiers sources est donc de les dissocier à l'aide de dossier. Il
-  est possible de leur donner un nom différent et de les renommer à la
-  compilation à l'aide de \texttt{-o}, mais cette fonctionnalité n'a pas de sens
-  et n'aide pas à la relecture du programme ou de la bibliothèque.
-\end{itemize}
+précédemment était implémentée. %% En revanche, le compilateur ne peut créer
+%% lui-même les dossiers correspondant aux namespaces sur le système de fichiers :
+%% cela entrainerait une dépendance vers le module \emph{Unix} et donc entamerait
+%% la portabilité du compilateur, celle-ci étant déjà précaire. Néanmoins, ce
+%% défaut n'en est pas vraiment un :
+%% \begin{itemize}
+%% \item Un utilisateur n'utilisera pas de namespaces pour des programmes simples,
+%%   leur utilité est vraiment de dissocier des ensembles de modules.
+%% \item Il est possible de retrouver deux modules avec le même nom dans deux
+%%   namespaces différents et de les utiliser conjointement. Le seul moyen d'avoir
+%%   les deux fichiers sources est donc de les dissocier à l'aide de dossier. Il
+%%   est possible de leur donner un nom différent et de les renommer à la
+%%   compilation à l'aide de \texttt{-o}, mais cette fonctionnalité n'a pas de sens
+%%   et n'aide pas à la relecture du programme ou de la bibliothèque.
+%% \end{itemize}
 
 L'implémentation actuelle modifie légèrement le type des alias de modules
 (introduit dans la verson 4.02) : le type qui à l'origine contient le chemin
@@ -1596,7 +1617,7 @@ déclarer des unités functorisées et leurs applications.
 <ns_conf> ::= <longident> `.' `(' <modules_constraints> `)'
 
 <modules_constraints> ::= <module_constraint>
-\alt <module_constraint> `;' <module_constraints>
+\alt <module_constraint> `,' <module_constraints>
 
 <modules_constraint> ::= `_'
 \alt <module_name> `as' <module_name>

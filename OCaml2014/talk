@@ -262,3 +262,17 @@ structures as arguments of functors or as first order modules. It is an early
 experiment that actually works in the prototype but is not efficient at all and
 needs some improvements.
 
+Big functor -> ---
+1 : titre + date + nom conf + ajouter pagination + affiliations
+2 : pas de phrases -> utiliser pauses etc
+  * faire des items
+3 : avant
+
+4 : formaliser -> création de l'environnement
+
+calcul des dépendances : le header suffit
+
+meaning -> main ou way
+
+av:
+extensibilité
