@@ -698,29 +698,33 @@ lui permet de raffiner ses choix à la manière de Scala :
 \item En important module par module;
 \begin{OCaml}
 with MyNamespace.(M, N)
+open M
 \end{OCaml}
 \item En important un module tout en l'aliasant;
 \begin{OCaml}
-with MyNamespace.(M as MyModule) 
+with MyNamespace.(M as MyModule)
+open MyModule 
 \end{OCaml}
 \item En important tous les modules;
 \begin{OCaml}
 with MyNamespace.(_)
+open M (* importe de MyNamespace *)
 \end{OCaml}
 \item En masquant un module, pour ne pas inclure tous les modules dans
   l'ensemble généré par la contrainte précédente.
 \begin{OCaml}
 with MyNamespace.(_, M as _)
+open M (* module qui n'etait donc pas dans MyNamespace *)
 \end{OCaml}
 \end{itemize}
 
-Cet en-tête n'existe plus à partir de la phase de typage, et se fait en deux
-temps : l'ensemble des modules à rajouter à l'environnement est calculée et le
+Cet en-tête n'existe plus à partir de la phase de typage, et se calcule en deux
+temps : l'ensemble des modules à rajouter à l'environnement est calculée puis le
 résultat ajouté à l'environnement. Il ne change rien à la chaîne de compilation,
 si ce n'est d'utiliser des informations de namespaces lors de la recherche de
-modules dans l'environnement. Cet en-tête ajoute chaque nom (ou alias) dans
-l'environnement, ainsi chaque module importé est directement utilisable. Par
-conséquent, dans ce cas précis :
+modules dans l'environnement (\emph{load path}). Cet en-tête ajoute chaque nom
+(ou alias) dans l'environnement, ainsi chaque module importé est directement
+utilisable. Par conséquent, dans ce cas précis :
 \begin{OCaml}
 with Stdlib.List
 and Core.List
@@ -728,12 +732,12 @@ and Core.List
 open List
 \end{OCaml}
 le module effectivement ouvert sera le second importé. Un \emph{warning} est
-ajouté au compilateur pour prévenir ce genre de cas. Il ne gère cependant que
-les noms importés depuis les namespaces. Par exemple, si on importait seulement
-le module List de Core, on ne pourrait plus utiliser un autre module List qui ne
-serait pas dans un namespace mais le compilateur ne pourrait pas le découvrir
-(ou alors il serait nécessaire de calculer son univers de compilation avant
-toute phase de typage).
+ajouté au compilateur pour prévenir ce genre de cas où deux noms importés
+entrerait en conflit. Il ne gère cependant que les noms importés depuis les
+namespaces. Par exemple, si on importait seulement le module List de Core, on ne
+pourrait plus utiliser un autre module List qui ne serait pas dans un namespace
+mais le compilateur ne pourrait pas le découvrir (ou alors il serait nécessaire
+de calculer son univers de compilation avant toute phase de typage).
 
 
 Cependant, cet en-tête n'est pas suffisant pour gérer l'utilisation de modules de

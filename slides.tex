@@ -9,14 +9,15 @@
 
 \setbeamercovered{transparent}
 
-\author{Pierrick COUDERC (INRIA), Fabrice LE FESSANT (INRIA \& OCamlPro), 
-  Benjamin CANOU (OCamlPro), Pierre CHAMBART (OCamlPro)}
+\author{Pierrick COUDERC, sous la direction de Fabrice Le Fessant 
+\\
+Inria}
 
-\title{A Proposal for Non-intrusive Namespaces\\
-  \medskip
-  OCaml 2014}
+\title{Master 2 STL - Soutenance de stage \\
+  -\\
+  Namespaces pour OCaml}
 
-\date{September 5, 2014}
+\date{8 Septembre 2014}
 
 %% \setlength{\grammarindent}{8em} % increase separation between LHS/RHS 
 
@@ -39,12 +40,14 @@
 \maketitle
 
 \begin{frame}
-\frametitle{Problem: using modules of the same name}
+\frametitle{Problématique: utiliser des modules de même nom}
 
 \only<1-2>{
+On suppose la situation suivante:
+
 \begin{itemize}
-\item LibA (Misc, Map, AnotherModule, ...) 
-\item My program (Misc, Env, ...)
+\item LibA: (Misc, Map, AnotherModule, ...) 
+\item Mon programme: (Misc, Env, ...)
 \end{itemize}
 
 \bigskip
@@ -58,14 +61,14 @@
 \only<3>{
 \begin{itemize}
 \item LibA (\alert{Misc}, Map, ...) 
-\item My program (\alert{Misc}, Env, ...)
+\item Mon programme (\alert{Misc}, Env, ...)
 \end{itemize}
 }
 
 \only<4-6>{
 \begin{itemize}
 \item LibA (Misc, Map, ...) 
-\item My program (\alert{My}Misc, Env, ...)
+\item Mon programme (\alert{My}Misc, Env, ...)
 \end{itemize}
 
 \bigskip
@@ -82,24 +85,24 @@
 }
 
 \only<6>{
-$\rightarrow$ stdlib/Map no longer usable
+$\rightarrow$ Impossible d'utiliser Map de la stdlib
 }
 
 \only<7-9>{
-What now?
+Quelles solutions ?
 \begin{itemize}
-\item<7-> Ask LibA dev to rename Map?
-\item<8-> Copy stdlib/map.ml sources? (bad idea)
-\item<9-9> Abandon stdlib?
+\item<7-> Copier les sources de map dans mon programme ?
+\item<8-> Abandonner la stdlib ?
+\item<9-9> Demander au développeur de renommer son module ?
 \end{itemize}
 }
 
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Before 4.02: developers' trick \#1}
+\frametitle{Avant 4.02: solution \#1}
 
-\emph{Common practice: long names}
+Pratique classique : l'utilisation de \emph{noms longs}
 
 \bigskip
 
@@ -113,55 +116,59 @@ What now?
 }
 
 \only<4>{
-Long names can be quite long...
+\begin{itemize}
+\item Obligation de tout renommer
+\item Utilisation de plusieurs bibliothèques $\rightarrow$ relativement verbeux
+\end{itemize}
 }
 
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Before 4.02: developers' trick \#2}
+\frametitle{Avant 4.02: solution \#2}
 
-\emph{Packs}
+Utilisation de \emph{packs de modules}
 
 \bigskip
 
 \only<2-3>{
 \begin{itemize}
 \item<2-3> LibA (Misc, Map, ...)
-\item<3-3> $\rightarrow$ LibA = a \alert{unique module} LibA
+\item<3-3> $\rightarrow$ LibA = un \alert{seul module} LibA
   
-  with \alert{submodules}: (Misc, Map, ...)
+  contenant pour \alert{sous-modules}: (Misc, Map, ...)
 \end{itemize}
 
 \bigskip
 }
 
 \only<4->{
-Pros:
+Avantages:
 \begin{itemize}
-\item<4->\textbf{Developer}: No code change, simply a matter of options;
-\item<5->\textbf{User}: 
+\item<4->\textbf{Developpeur}: Pas de modification du code, simplement des
+  options du compilateur
+\item<5->\textbf{Utilisateur}: 
   \begin{itemize}
-  \item Use path to distinguish modules
-  \item Use the module as any other module
+  \item Possibilité d'utiliser le chemin \texttt{Pack.Module}
+  \item Possibilité d'utiliser le pack comme n'importe quel module
   \end{itemize}
 \end{itemize}
 \medskip
 }
 
 \only<6->{
-Cons:
+Inconvénients:
 \begin{itemize}
-\item<6-> Too much recompilations
-\item<7-> Dependencies
-\item<8-> Size of executables really large
+\item<6-> Arbre de recompilation très important
+\item<7-> Dépendances difficilement calculables
+\item<8-> Exécutables produits particulièrement gros
 \end{itemize}
 }
 
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Since 4.02: developers' trick \#3}
+\frametitle{Avec 4.02: solution \#3}
 
 \defverbatim[colored]{\exalias}{
 \begin{OCaml}
@@ -172,7 +179,9 @@ Cons:
 \end{OCaml}
 }
 
-\emph{Module aliases}
+Introduction des \emph{alias de modules}
+
+\bigskip
 
 \only<2->{
 \begin{itemize}
@@ -181,7 +190,9 @@ Cons:
 
 \exalias
 
-compiled with \textbf{-no-alias-deps}
+compilé avec \textbf{-no-alias-deps}:
+
+$\rightarrow$ Pas nécessaire de \emph{linker} les alias non utilisés
 \end{itemize}
 
 }
@@ -189,7 +200,7 @@ compiled with \textbf{-no-alias-deps}
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Using advantages of aliases}
+\frametitle{Simuler des namespaces à l'aide d'alias}
 
 \defverbatim[colored]{\exalias}{
 \begin{OCaml}
@@ -209,7 +220,7 @@ open Misc
 \bigskip
 
 \only<2-3>{
-Developer POV: using short names
+Intérêt pour le développeur: utiliser aussi les noms courts
 
 \exalias
 }
@@ -217,7 +228,9 @@ Developer POV: using short names
 \only<3-3>{
 \bigskip
 
-$\rightarrow$ False circularity
+Circularité $LibA \prec Map \land Map \prec Lib$ ?
+
+$\rightarrow$ Non, grâce à \textbf{-no-alias-deps}
 }
 
 \defverbatim[colored]{\exaliasbis}{
@@ -230,11 +243,11 @@ open Misc
 
 \only<4-5>{
 \begin{itemize}
-\item<4-> Deceive ocamldep for better dependencies 
+\item<4-> ``Tricher'' pour des dépendances correctes
 
 \exaliasbis
 
-\item<5> + Namespace used transparently
+\item<5> \textbf{+} Utiliser le namespace de manière transparente
 
 $\rightarrow$
 
@@ -245,36 +258,39 @@ $\rightarrow$
 \end{frame}
 
 \begin{frame}
-\frametitle{Current solutions}
+\frametitle{Solutions actuelles}
 \begin{itemize}[<+->]
-\item Dependencies issues
-\item Build system sometimes complex
-\item No extensibility
+\item Dépendences difficiles à calculer
+\item Nécessite un bon système de \emph{build}
+\item Pas d'extensibilité : ajout de modules \emph{a posteriori} impossible.
 \end{itemize}
 \end{frame}
 
 \begin{frame}
-Our solution: \emph{namespaces}.
+\frametitle{Solution proposée}
+La solution: un méchanisme de \emph{namespaces}.
 
 \bigskip
 
-Principle:
+Principe:
 \begin{itemize}[<+->]
-\item A module belongs to a namespace
-\item Modules in namespaces are imported explicitely
+\item Chaque module appartient à un namespace
+\item Les modules sont explicitement importés
 \end{itemize}
 
 \bigskip
 
 \only<3>{
-  To compare with Java or Scala's packages.
+  Utilisation d'un en-tête pour gérer les namespaces
+
+  Le principe est similaire aux packages de Java ou Scala.
 }
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Writing LibA with namespaces}
+\frametitle{Réécrire LibA avec des namespaces}
 
-What happens to LibA?
+Comment réécrire LibA?
 
 \pause
 
@@ -297,10 +313,10 @@ What happens to LibA?
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Using our library}
+\frametitle{Utiliser la bibliothèque}
 
 \only<1>{
-How to use those modules in my program?
+Comment utiliser les modules du namespaces ?
 }
 
 \defverbatim[colored]{\simpleimport}{
@@ -335,7 +351,7 @@ let _ = ...
 \end{OCaml}}
 
 \only<4->{
-  We need Misc and ``Misc from LibA'' at the same time:
+  Il faut importer à la fois Misc et ``Misc depuis LibA'':
   
   \bigskip
 
@@ -345,9 +361,9 @@ let _ = ...
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Using all modules}
+\frametitle{Utilisation de tous les modules}
 
-We need all the modules.
+Importer tous les modules :
 
 \bigskip
 
@@ -360,21 +376,21 @@ open Misc (* from LibA *)
 ...
 \end{OCaml}}
 
-\only<2-3>{
+\only<3>{
   \wildcard
 
 \bigskip
 
-Not recommended: it shadows existing names
+Non recommandé car masque des modules précédemment importés.
 
 }
 
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Using almost all the modules}
+\frametitle{Presque tout utiliser}
 
-We need all the modules, except this one.
+Importer tous les modules, sauf certains :
 
 \bigskip
 
@@ -393,17 +409,19 @@ open Misc (* not the Misc from LibA *)
 
 \bigskip
 
+\`{A} noter:
 \begin{itemize}
-\item<3-3> Misc is not imported from LibA (no dependency)
-\item<3-3> Still not recommended.
+\item<2-3> Aucune dépendance vers LibA.Misc : le module n'est pas seulement
+  caché, il n'apparait pas dans l'environnement.
+\item<3-3> Non recommandé (pour les mêmes raisons).
 \end{itemize}}
 
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Naming conflict}
+\frametitle{Conflit de noms}
 
-If I imports two modules with the same name?
+Si deux noms indentiques sont utilisés:
 
 \bigskip
 
@@ -428,8 +446,8 @@ and LibA._
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Extensibility}
-Namespaces are not closed.
+\frametitle{Extensibilité}
+Au contraire des modules, les namespaces ne sont pas \emph{clos}.
 
 \bigskip
 
@@ -442,14 +460,14 @@ in namespace LibA
 
 \only<2>{\extens
 \bigskip
-Adding a module in a namespace \emph{a posteriori} is possible}
+Insérer un module dans un namespace \emph{a posteriori} (qui existe donc déjà) est possible}
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Extending Pervasives to namespaces}
+\frametitle{Etendre Pervasives aux namespaces}
 
 \only<1-2>{
-Pervasives: automatically opened.
+Par défaut, Pervasives est automatiquement ouvert.
 }
 
 \defverbatim[colored]{\pervasives}{
@@ -465,7 +483,8 @@ let empty = [] (* from Stdlib.Pervasives *)
 
 \bigskip
 
-$\rightarrow$ Pervasives modules automatically opened when using their namespace.
+$\rightarrow$ par conséquent, Pervasives d'un namespace est ouvert si ce dernier
+est utilisé.
 }
 
 \defverbatim[colored]{\palias}{
@@ -481,98 +500,98 @@ with Stdlib.(Pervasives as _)
 }
 
 \only<3-4>{
-Preventing auto-opens: 
+Empêcher l'ouverture automatique: 
 \bigskip
 \begin{itemize}
-\item<3-> By renaming:
+\item<3-> En renommant:
 \palias
-\item<4-> And shadowing:
+\item<4-> Ou en masquant:
 \pshadow
 \end{itemize}
 }
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Using hierarchies organization}
-Namespaces: natural way to organize modules.
+\frametitle{Organisation hiérarchique}
+Namespaces : organisation naturelle de modules (comme une bibliothèque).
 
 \medskip
 \pause
 
-Stdlib could be organized and used like this:
+Une possible organisation de Stdlib:
 \begin{OCaml}
-with Stdlib.Internals.CamlinternalFormats
+with Stdlib.Internals.CamlinternalFormat
 and Stdlib.Unsafe.Obj
 ...
 \end{OCaml}
 \end{frame}
 
 \begin{frame}
-\frametitle{Mapping namespaces and filesystem}
+\frametitle{Namespaces et système de fichiers}
 
-Technically: a namespace $\Rightarrow$ a directory
+A la compilation: un namespace $\Rightarrow$ un dossier
 
 \medskip
 
 \pause
 
 \begin{itemize}[<+->]
-\item Logical: distinguish compilation units of the same name
-\item Practical: automatic organization
-\item In the future: would allow simpler compilation (-make)
+\item Logique : permet de distinguer les unités de même nom
+\item Pratique : organisation automatique par le compilateur
+\item Future utilisation : permettre une option \emph{-make} similaire à GHC
 \end{itemize}
 
 \end{frame}
 
 \begin{frame}
-\frametitle{ocamldep and namespaces}
+\frametitle{Calcul des dépendances}
 
-Namespace declaration and imports $\equiv$ header
-
-\bigskip
-
-Dependencies computed easier: each import \textbf{obviously is} a file.
+Déclaration et imports de namespaces $\equiv$ en-tête de fichier
 
 \bigskip
 
-With a large adoption and use of namespace: 
+Simplification du calcul de dépendances: chaque module \textbf{est forcément} un fichier
 
-$\rightarrow$ ocamldep only needs to read the header.
+\bigskip
+
+Intérêt : calcul syntaxique des dépendances
+$\rightarrow$ ocamldep peut ne lire que l'en-tête, sans \emph{typer} le code
 
 \end{frame}
 
+%% \begin{frame}
+%% \frametitle{Formal and technical aspect}
+
+%% Namespaces, especially imports:
+
+%%  $\rightarrow$ Description of the compilation environnement
+
+%% \bigskip
+
+%% Compiler-side: not too invasive
+%% \begin{itemize}[<+->]
+%% \item Symbols extended to contain the namespace
+%% \item Env extended to use and propagate namespaces
+%% \end{itemize}
+
+%% \end{frame}
+
 \begin{frame}
-\frametitle{Formal and technical aspect}
-
-Namespaces, especially imports:
-
- $\rightarrow$ Description of the compilation environnement
-
-\bigskip
-
-Compiler-side: not too invasive
+\frametitle{Alias face à notre solution}
 \begin{itemize}[<+->]
-\item Symbols extended to contain the namespace
-\item Env extended to use and propagate namespaces
-\end{itemize}
-
-\end{frame}
-
-\begin{frame}
-\frametitle{Comparing our proposal with module aliases}
-\begin{itemize}[<+->]
-\item \textcolor{blue}{\textbf{+}} Extensibility
-\item \textcolor{blue}{\textbf{+}} Simple build system
-\item \textcolor{blue}{\textbf{+}} Better dependencies
-\item \textcolor{blue}{\textbf{+}} Expressivity
-\item \textcolor{red}{\textbf{-}} New syntax $\rightarrow$ code not compatible with old compilers
+\item \textcolor{blue}{\textbf{+}} Extensibilité
+\item \textcolor{blue}{\textbf{+}} Makefile ou systèmes de build simples
+\item \textcolor{blue}{\textbf{+}} Meilleure calcul des dépendances
+\item \textcolor{blue}{\textbf{+}} Plus expressif
+\item \textcolor{red}{\textbf{-}} Nouvelle syntaxe $\rightarrow$ le code n'est
+  pas compatible avec des compilateurs plus anciens
 \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Works in progress: coercion to module}
+\frametitle{Works in progress: Coercion vers modules}
 
-Transforming the header into modules.
+Idée : transformer l'en-tête en un module
 
 \begin{OCaml}
 with LibA.(Misc, Map)
@@ -606,22 +625,25 @@ end
 \end{frame}
 
 \begin{frame}
-\frametitle{Work in progress: big functors}
+\frametitle{Work in progress: \emph{big functors}}
 
-Primary idea: using packs to generate functors (Fabrice Le Fessant, for OCaml 3.12)
-
-\bigskip
-
-Example: Cohttp $\rightarrow$ uses functors massively to use Lwt and Async.
+A la base : travail de Fabrice Le Fessant pour générer des foncteurs dans les packs
 
 \bigskip
 
-$\Rightarrow$ Generating automatically functors and applications on entire
-namespaces.
+Exemple: Cohttp $\rightarrow$ utilise énormément de foncteurs pour être
+paramétrique et utiliser à la fois Lwt et Async
+
+\bigskip
+
+Principe :
+
+$\Rightarrow$ Générer ces foncteurs automatiquement sur l'ensemble du namespace,
+et l'appliquer tardivement
 
 \medskip
 
-Highly experimental, design choices to do and change.
+Expérimental, avec des choix arbitraires à revoir.
 
 \end{frame}
 
@@ -629,9 +651,10 @@ Highly experimental, design choices to do and change.
 \frametitle{Conclusion}
 
 \begin{itemize}
-\item Mechanism of namespaces integrated in the language
-\item Solves compilation issues, can help tools for dependencies
-\item Working prototype on 4.02:
+\item Véritable méchanisme de namespaces dans le langage
+\item Résoud des problèmes de compilation
+\item Grand intérêt pour le calcul de dépendances
+\item Prototype fonctionnel (OCaml 4.02):
 
 \texttt{github.com/pcouderc/ocaml_namespaces}
 \end{itemize}
